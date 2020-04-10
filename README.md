@@ -232,9 +232,57 @@ echo "Hello World!" > /var/www/html/index.html
   * EC2 user data
   * EBS volumes
   * security groups
+    * choose security group attached to instance
+    * it should already reference the load balancer
   * SSH key pair
 * min/max size + initial capacity
 * network and subnets info
+  * add multiple subnets for reliability
 * LB info
+  * check "receive traffic from one or more load balancers"
+  * use target groups (ALB)
+  * health check: ELB
 * scaling policies
+* check Activity history to confirm instances have been created to match desired min
 
+## Elastic Block Store Volume (EBS)
+
+* EC2 machines can lose its root volume when it is manually terminated (can disable this)
+* unexpected terminations happen
+* store instance data somewhere
+* EBS volume is a network drive you can attach to instances while they run
+* facilitates instances persisting data
+* can be detached and attached to instance
+* locked to availability zone (AZ)
+* to move a volume, snapshot first
+  * back up
+  * only uses space that is needed
+  * can schedule snapshots
+  * can use for volume migration
+* have provisioned capacity (GBs and IOPs)
+  * billed for capacity regardless of whether you use it
+  * can increase provisioned capacity over time
+  * repartition after increasing volume
+* 4 types characterized by size, throughput, and IOPS
+  * GP2 (SSD): general purpose
+  * IOI (SSD): high performance, low latency, high throughput workloads
+  * STI (HDD): low cost HDD volume for frequent access, throughout intensitve workloads (big data)
+  * SCI (HHD): low cost, less frequently accessed workloads 
+* EBS encryption
+  * data at rest is encrypted inside volume
+  * all data in flight b/w instance and volume is encrypted
+  * all snapshots are encrypted
+  * all volumes created by snapshots are encrypted
+  * minimal impact on latency
+  * leverages keys from KMS (AES-256)
+  * copying an unencrypted snapshot can be encrypted
+* EBS backups use I/O so don't run while app is receiving high traffic load
+
+### EBS vs Instance Store
+
+* Some instances do not come with Root EBS volume but rather with an instance store
+* Instance store is physically attached to machine
+* PRO: better I/O performance
+* CON: on termination, instance store is lost
+* CON: can't resize instance store
+* CON: backups must be operated by user
