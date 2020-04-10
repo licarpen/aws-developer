@@ -105,7 +105,6 @@ To view this content in a web browser: http://<public ip address>:80
 * User data example (as text)
 
 #!/bin/bash
-sudo su
 yum update -y
 yum install -y httpd.x86_64
 systemctl start httpd.service
