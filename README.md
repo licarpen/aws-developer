@@ -63,8 +63,8 @@ Review Section 3.29 EC2 Good Things to Know and Checklist
 
 * controls inbound and outbound traffic www <-> EC2 Machine (act as firewall)
 * fundamental to troubleshooting network issues
-* inbound rules default to port 22 and source 0.0.0.0/0
-* outbound defaults to ALL traffic
+* inbound rules default to port 22 and no incoming traffic
+* outbound defaults to allowing ALL inbound traffic
 * security groups can be attached to multiple instances and vice versa
 * locked down to region/VPC combination
 * best practice: maintain separate security group for SSH access
@@ -96,7 +96,7 @@ Persist through reboots
 Test (curl loads content of url)
 ```curl localhost:80```
 * add security rule for HTTP inbound port 80
-To view this content in a web browser: http://<public ip address>:80
+To view this content in a web browser: http://PUBLIC_IP:80
 
 ### User Data
 
