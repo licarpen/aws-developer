@@ -286,3 +286,71 @@ echo "Hello World!" > /var/www/html/index.html
 * CON: on termination, instance store is lost
 * CON: can't resize instance store
 * CON: backups must be operated by user
+
+## Route53 for Managed Domain Name System (DNS)
+
+* Types
+  * A: URL to APv4
+  * AAAA: URL to APv6
+  * CNAME: URL to URL
+  * Alias: URL to AWS resource
+* Information is cached on your machine for future reference
+* can use public domain names you own
+* private domain names that can be resolved by your instances in your VPCs
+* offers load balancing through DNS (client load balancing)
+* health checks (limited)
+* routing policy: simple, failover, geolocation, geoproximity, latency, weighted
+* Prefer Alias over CNAME for AWS resources for performance
+* services -> Route 53 -> DNS Management -> Create hosted zone -> domain name (need to have registered domain on sidebar) -> create record set -> choose A record -> alias
+
+## Relational Database Service (RDS)
+
+* use SQL as query language
+* Postgres, Oracle, MySQL, Oracle, Microsoft SQL, mariaDB, Aurora
+* Provides OS patching
+* continuous backups and restore
+  * daily full snapshot 
+  * capture transaction logs in real time
+  * can restore to any point in time
+  * 7 days retention (can increase to 35 days)
+  * can trigger manual snapshot and save for any amount of time
+  * encryption at rest with KMS
+  * SSL certificates to encrypt data to RDS in flight
+    * enforcement for postgreSQL: rds.force_ssl=1 in AWS RDS console in paramter groups
+    * enforcement for MySQL: within DB: GRANT USAGE ON *.* TO 'mysqluser'@'%' REQUIRE SLL;
+    * connection using SSL
+      * provide SSL trust certificate (dl from AWS)
+      * provide SSL options when connecting to DB
+* monitoring dashboards
+* read replicas for improved read performance
+  * up to 5 read replicas in any AZ (across region)
+  * master takes all writes
+  * asynchronous replication - reads are eventually consistent after write
+  * applications must update connection string to leverage read replicas
+* multi AZ setup for disaster recovery
+  * writes to master DB are synchronously replicates to 1 standby in different AZ for failover
+  * automatic
+* scaling capability (vertical and horizontal)
+* cannot SSH into instances!
+* security  
+  * usually deployed within a private subnet, not in a public one
+  * use security groups for who can communicate with RDS
+  * IAM policites control who can MANAGE RDS
+  * Username/password can be used to login to DB
+  * IAM can be used as well (now for MySQL/Aurora)
+
+* Aurora
+  * proprietary tech from AWS
+  * Postgres and MySQL supported
+  * cloud optimized: 5x performance of MySQL, 3x performance of postgres
+  * storage autoscales in increments of 10GB up to 64TB
+  * 15 replicas (MySQL: 5) at sub 10ms replica lag
+  * failover instantaneous (High availability native)
+
+
+
+
+
+
+
+
