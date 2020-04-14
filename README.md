@@ -346,11 +346,178 @@ echo "Hello World!" > /var/www/html/index.html
   * storage autoscales in increments of 10GB up to 64TB
   * 15 replicas (MySQL: 5) at sub 10ms replica lag
   * failover instantaneous (High availability native)
+  * costs 20% more but more efficient
 
+  Checkout sqlelectron as resource for DB gui
 
+  ## ElastiCache
 
+  * basically an RDS for caching
+  * get managed Redis or Memcached
+  * in-memory DB with high performance, low-latency
+  * reduce load on DB for load intensive workload
+  * helps make app stateless
+  * write scaling using sharding
+  * read scaling use read replicas
+  * multi AZ with failover capability
+  * AWS takes care of OS maintenance, patching, monitoring, config, failure recovery, backups, etc.
+  * user session store
+    * user signs into instance
+    * session sent to ElasiChache
+    * user hits another instance
+    * instance checks cache for user session
+  * redis
+    * during setup, change node type to t2.micro and # replicas to 0
+    * in-memory key-value store
+    * super low latency (sub ms)
+    * cache survives reboot (persistence)
+    * great to host 
+      * user sessions
+      * distributed states
+      * leaderboard for gaming
+      * relieve pressure on DB
+      * pub/sub for messaging
+    * multi AZ
+    * support for read replicas
+  * Memcached
+    * in-memory object store
+    * no persistence
+    * quick retrieval of objects
+    * cache often-accessed objects
 
+  ### ElastiChache Patterns
 
+  * Lazy Loading
+    * load only when necessary
+    * cache is only filled with requested data
+    * node failute is not fatal (just warm the cache)
+    * cache miss penality of 3 round trips = noticeable delay
+    * stale data: data could be outdated
+  * Write Through
+    * add or update cache when database is updated
+    * data in cache is never stale
+    * write penalty (two calls for each write)
+    * cache will have a lot of data that is never read
 
+## VPS and 3 Tier Architecture
 
+* Public Subnet
+  * load balancers
+  * static websites
+  * files
+  * public authentication layers
+* Private Subnet
+  * web app servers
+  * databases
+* can talk to each other if on same VPC
+* VPC flow logs allow you to monitor traffic i/o of VPC
+* VPC per account per region
+* subnets per VPC per AZ
+* can peer VPC w/i or accross accounts to make it look like they are part of the same network
 
+## S3
+
+### Buckets
+* globally unique name
+* defined at regional level
+* enable versioning at this level
+
+### Objects
+* objects have key: FULL path to file
+* 5TB max
+* >5GB must use multi-part upload
+* metadata (system/user)
+* tags (up to 10 for security/lifecycle)
+* version ID
+  * changed on every update
+  * no version = null
+
+### Encryption
+* encryption in flight: SSL/TLS use HTTPS
+* 4 types (IMPORTANT)
+  * SSE-S3
+    * encrypts objects using keys handled and managed by AWS
+    * encrypted server side
+    * AES-256 encryption type
+    * set header: "x-amz-server-side-encryption":"AES256"
+    * key is managed by S3
+  * SSE-KMS
+    * leverage AWS Key Management Service to manage encryption keys
+    * more control over rotation of key
+    * access to audit trail
+    * set header: "x-amz-server-side-encryption":"AWS:kms"
+    * key used is an AWS customer master key
+  * SSE-C
+    * manage own encryption keys
+    * HTTPS must be used
+    * S3 does NOT store encryption key
+    * send data key in header
+    * data is encrypted by amazon and then throws away key
+  * Client side encryption
+    * encryptiong before sending to S3
+    * decryption when retrieving
+
+### Security
+
+* User Based
+  * use IAM policies
+* Bucket Policies (Resource Based)
+  * use bucket-wide rules from S3 console
+  * JSON based policies
+    * resources: buckets and objects
+    * actions: set of API to allow/deny
+    * effect: allow/deny
+    * principal: the account or user to apply the policy to
+    * use the policy generator for bucket policy
+    * ex: to ensure encryption of new objects:
+      * bucket policy
+      * principal: *
+      * Action: putObject
+      * ARN: arn:aws:s3:::carpentercode/*
+      * add conditions: string aws-encrption-key-header != AES256
+  * Object Access Control List (ACL)
+  * Bucket Access Control List (ACL) - less common
+* networking
+  * supports VPC endpoints (not connected to www)
+  * logging and audit
+    * S3 access logs can be stored in other S3 bucket
+    * API calls can be logged in AWS CloudTrail
+  * User security
+    * MFA can be required in versioned buckets to delete objects
+    * signed URLs: valid for limited time (ex: video access)
+
+### S3 Website
+* bucket permissions: allow public access
+* properties: static website hosting
+* need to add JSON bucket policy 
+  * allow everyone to getObject
+
+### S3 CORS
+* if you request data from another S3 bucket, enable CORS
+* Cross Origin Resource Sharing allows you to limit the number of websites that can request your files in S3
+
+### S3 Consistency Model
+* read after write consistency for PUTS of new objects
+  * NOT TRUE if you did GET before to see if the object existed (failed GET was cached)
+* Put object -> Put object -> get object:  might get 1st object!
+* delete object -> might still get it!
+
+### S3 Performance
+  * historically, key names for objects should include random prefix to partition
+  * do NOT use dates - very close and partitions would be too close
+  * not anymore! 
+  * to upload large objects quickly (>100MB)
+    * multipart upload
+    * parallelizes PUTs
+    * maximize network bandwidth and efficiency
+    * decrease time to retry for part if fail
+    * MUST use if >5GB
+  * use CLoudFront to cache S3 objects around the world
+  * S3 Transfer Acceleration (uses edge locations) just need to change the endpoint you write to, not the code
+  * SSE-KMS encryption: limited to AWS limits for KWS usage (~100s -1000s dls/uls /second)
+
+### S3 Glacier - long term archival for files
+
+### S3 Select
+* use query to retrieve only data you need
+* no subqueries or joins
