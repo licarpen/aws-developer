@@ -587,7 +587,7 @@ google 'aws s3 cli' for documentation
 * can retrieve IAM Role name but cannot retrieve the IAM Policy
 * useful for automation
 
-### Software Developer Kits(SDK)
+### Software Developer Kits (SDK)
 
 * Allows you to perform actions on AWS directly from application code (Java, Python aka boto3, Node.js, etc)
 * use default credential provider chain
@@ -598,3 +598,86 @@ google 'aws s3 cli' for documentation
 * used for multiple aws accounts
 * `aws configure --profile my-other-profile`
 * `aws s3 ls --profile my-other-profile`
+
+## Elastic BeanStalk
+
+* architecture models
+  * single instance deployment: dev
+  * LB + ASG: production/pre-prod web apps
+  * ASG only: non-web-apps in production (workers, etc)
+* components
+  * application
+  * application version
+  * environment name
+* relies on CloudFormation
+* can use EB cli for automated deployment pipelines
+  * eb create, eb status, etc.
+* code must be a zip file
+* all parameters set in UI can be configured with code using files
+* requirements must be in .ebextensions/ directory in root 
+  * format must be YAML or JSON format
+  * .config extensions (ex: logging.config)
+  * able to modify default settings using: option_settings
+  * can add resources such as RDS< ElastiCache, DynamoDB, etc
+* optimize in case of long deployment: package dependencies with source code to improve deployment performance and speed
+* deployment options for updates
+  * all at once (instances not available to serve traffic during downtime)
+    * no additional $
+  * rolling: update a few instances (a bucket) at a time
+    * can set bucket size
+    * app running both versions simultaneously
+    * app running below capacity for period of time
+    * no additional cost
+    * long deployment
+  * rolling with additional batches: new instances are created while moving a batch
+    * small additional cost
+    * app continues to run at capacity
+    * long deployment
+    * good for prod
+    * additional batch is removed at end
+  * immutable: spin up new instances in new ASG, deploy versions to these instances, then swap all instances when everything is healthy
+    * high additional cost
+    * longest deployment
+    * no downtime
+    * quick rollback in case of failure
+    * great for prod
+  * Blue/Green
+    * zero downtime and release facility
+    * create a NEW stage environment and deploy new version there
+    * Route 53 can use weighted policies to redirect some traffic to stage environment
+    * swap URLs 
+
+### BeanStalk with HTTPS
+  * load ssl certificate onto LB 
+    * from console
+    * from code: .ebextensions/securelistener-alb.config
+    * using ACM (AWS Certificate Manager) or CLI
+    * must configure sg rule to allow incoming port 443 (HTTPS)
+  * redirect from http to https
+    * configure your instances (look up)
+    * or configure ALB with a rule
+    * make sure health checks are not redirected
+
+### BeanStalk Lifecycle Policy
+
+* can store at most 1000 application versions
+* need to phase out old app versions using lifecycle policy
+  * based on time
+  * based on space
+* option not to delete source code bundle
+
+### Web Server vs Worker Environment
+
+* offload tasks to worker environment (processing video, generating zip file, etc)
+* can define periodic tasks in a cron.yaml file
+
+### RDS + BeanStalk
+
+* decouple RDS from BeanStalk
+* if you need to decouple
+  * take RDS DB snapshot
+  * enable deletion protection
+  * in BeanStalk create new env that points to existing RDS
+  * swap new and old env
+  * terminate old env
+  * delete CloudFormation stack
