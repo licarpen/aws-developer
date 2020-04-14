@@ -521,3 +521,80 @@ echo "Hello World!" > /var/www/html/index.html
 ### S3 Select
 * use query to retrieve only data you need
 * no subqueries or joins
+
+## CLI
+
+### Ways to Develop and Perform AWS Tasks
+  * CLI on local computer
+  * CLI on EC2 machine
+  * SDK on local computer
+  * SDK on EC2 machine
+  * AWS Instance Metadata Service for EC2
+
+
+### Setting up CLI for user on computer
+
+* for target user on IAM: CREATE ACCESS KEY
+* In terminal `aws configure`
+* follow command line prompts
+* no default output format needed
+* confirm configuration: `aws configure`
+* to see files generated: `ls ~/.aws`
+* to see content of files: `cat ~/.aws/config` and `cat ~/.aws/credentials`
+
+### S3 CLI on Personal Computer
+
+google 'aws s3 cli' for documentation
+
+* `aws s3 ls` lists all buckets
+* `aws s3 ls s3://carpentercode` lists contents of bucket
+* `aws s3 cp help` displays documentation for cp command 
+* `q` to quit help
+* `aws s3 cp s3://carpentercode/bmc.jpg bmc.jpg` copies file from s3 bucket to current folder
+* `aws s3 mb s3://carpentercode2` makes bucket
+
+### CLI on EC2
+
+* NEVER RUN `aws configure` on EC2!!!  Personal credentials do not belong here.
+* use IAM roles
+* ssh into instance `ssh -i EC2Tutorial.pem ec2-user@54.158.176.234`
+* aws configure
+  * leave credentials blank
+  * enter region
+* go to IAM roles and create new role
+* attach to EC2
+* attach permision policy (ex: S3 read only)
+* go to EC2 and right click instance
+  * instance settings -> attach/replace IAM Role
+  * check in instance details
+  * test in terminal (ex: aws s3 ls)
+  * can add inline policies
+  * use aws policy simulator to test
+  * or use cli to simulate api calls without actually making them (save $$$)
+    * use --dry-run argument to test
+
+### Decoding Error Messages with STS Decode
+
+* `aws sts decode-authorization-message --encoded-message <value>`
+* must have sts decode allowed in policy
+* to format response `echo <result>`
+* copy --> paste --> .JSON document -> format selection using "quick action >"
+
+### EC2 Instance Metadata
+
+* `curl http://169.254.169.254/latest/meta-data`
+* only works from EC2 instance
+* can retrieve IAM Role name but cannot retrieve the IAM Policy
+* useful for automation
+
+### Software Developer Kits(SDK)
+
+* Allows you to perform actions on AWS directly from application code (Java, Python aka boto3, Node.js, etc)
+* use default credential provider chain
+* exponential backoff is implemented automatically for SDK api calls
+
+### CLI Profile
+
+* used for multiple aws accounts
+* `aws configure --profile my-other-profile`
+* `aws s3 ls --profile my-other-profile`
