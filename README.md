@@ -885,3 +885,248 @@ sudo service codedeploy-agent status
 * ability to integrate with Cloud9 to obtain web IDE
 * one dashboard
 * limited customization
+
+## CloudFormation
+
+Managing infrastructure as code
+
+* code with create, update, delete, etc infrastructure
+* can estimate cost of resources using CloudFormation template
+* savings strategy: automate deletion of templates at 5pm and recreate at 8am
+* declarative: don't need to order or orchestrate
+* creates many stacks for many apps (ex: VPC stack, network stacks, app stacks)
+* leverage existing templates and documentation
+* upload template in S3
+* can't edit templates - upload new version
+* deleting a stack deletes all artifacts associated with it
+* template helpers 
+  * references and functions
+
+### Deploying CloudFormation templates
+
+* Manually
+  * edit template in CloudFormation Designer
+  * use console to input parameters
+* Automated
+  * edit templates in YAML file
+  * use AWS CLI to deploy
+  * recommended to fully automate
+
+### CloudFormation Building Blocks
+
+#### Resources
+* mandatory
+* can reference each other (sg & instance)
+* identifier: AWS::aws-product-name::data-type-name
+* see AWS resource types references
+* each resource must have type and properties
+* cannot create dynamic amount of resources
+* can work around unsupported resources using custom Lambda
+
+#### Parameters
+* way to provide inputs to your AWS CloudFormation template
+* enable resuing templates across apps
+* if a resource configuration is likely to change in the future, use a parameter to avoid re-uploading template to change the content
+* use Fn::Ref
+  * !Ref
+  * can reference parameters or resources
+* pseudo parameters
+  * AWS::AccountId
+  * AWS::NotificationARNs
+
+#### Mappings
+* fixed variables within your CloudFormation Template
+* can be used to differentiate between different environments (dev vs. prod), AWS regions, AMI types, etc
+* ex:
+```Mappings:
+    Mapping01:
+      Key01:
+        Name: Value01
+    Mapping02:
+      Key02:
+        Name: Value02
+```
+* use Fn::FindInMap to return value from specific key
+* !FindInMap [Mapname, TopLevelKey, SecondLevelKey]
+
+#### Outputs
+* values that can be exported from stack that can be imported to other stacks
+* can be viewed in AWS console or AWS CLI
+* ex: could define network CloudFormation and output variables such as VPC ID and Subnet IDs
+* enables collaboration cross-stack 
+* can't delete stack that has outputs being referenced elsewhere
+* exported output name must be unique within your region
+* export example: 
+``` Outputs:
+      StackSSHSecurityGroup:
+        Description: fjdkslkdjf
+        Value: !Ref sdfkldkj
+        Export:
+          Name: SSHSecurityGroup 
+```
+* import example: 
+  ```Resources:
+      MySecureInstance:
+        Type: AWS::sdflkj
+        Properties:
+          sdkflkj
+          sdlfkj
+          sdflkj
+          SecurityGroups:
+            - !ImportValue SSHSecurityGroup
+  ```
+
+#### Conditions
+* used to control creation of resources or outputs based on condition
+* And, Equals, If, Not, Or
+* Define condition Example: 
+```Conditions:
+    CreateProdResources: !Equals [ !Ref EnvType, prod ]
+```
+* Apply condition example:
+```Resources:
+    MountPoint:
+      Type: sdlfkdjklkj
+      Condition: CreateProdResources
+```
+
+#### Intrinsic Functions
+* Ref
+  * Parameter: returns value of parameter
+  * Resources: returns physical ID of resource
+* Fn::GetAtt (uses dot notation to reference attributes)
+* Fn::FindInMap
+* Fn::ImportValue
+* Fn::Join
+  * example: !Join [ ":", [a, b, b]] => "a:b:c"
+* Fn:Sub
+  * substitute values in string
+  * example: 
+  ```!Sub
+        - String
+        - { Var1Name: Var1Value, Var2Name: Var2Value }
+* Conditions
+
+#### Metadata
+
+#### CloudFormation Rollbacks
+* Stack create failures
+  * default is to roll back (gets deleted)
+  * option to disable roll back and troubleshoot
+* Stack update fails
+  * stack auto rolls back to previous known working state
+  * check log for error messages
+
+## Monitoring & Audit
+
+### CloudWatch
+* Metrics
+  * variable to moniter (CPUUtilization, NetworkIn, etc)
+  * belong to namespace
+    * dimension is an attribute (instance id, etc)
+    * up to 10 dimensions per metric
+  * have timestamps
+  * dashboard
+  * default: 5 minutes
+    * can enable detailed monitoring for extra cost
+    * can be used to decrease ASG response time
+  * recall: EC2 Instance Memory usage not pushed by default.  Push from instance as custom metric
+  * standard resolution for custom metric: 1 minute
+    * can enable high resolution for up to 1 second
+    * StorageResolution API parameter
+    * increased $
+  * send metric to CloudWatch with PutMetricData
+  * use expontential bakoff in case of throttle errors
+* Logs
+  * apps can send logs to CloudWatch using SDK
+  * CloudWatch can collect log from 
+    * Elastic BeanStalk
+    * ECS: collections from containers
+    * Lambda
+    * VPC Flow Logs
+    * API gateway
+    * CloudTrail based on filter
+    * CloudWatch log agents (ex: on EC2 machine)
+    * Route 53: log DNS queries
+  * can be exported to S3
+  * can be streamed to ElasticSearch
+  * can use filter expresions
+  * architecture
+    * groups (represent app)
+    * stream (instances within app/logfiles/containers)
+  * Can define log expiration policies (never, 30 days, etc)
+  * to send logs, ensure IAM permissions
+  * can encrypt logs using KMS at rest at group level
+* Events
+  * schedule with Cron jobs
+  * Event pattern: define event rule to react to a service doing something
+    * ex: CodePipeline state changes
+  * trigger to Lambda functions, SQS/SNS/Kinesis messages
+  * creates small JSON doc to give info about change
+* Alarms
+  * trigger notification for any metric
+  * send to auto scaling, EC2 actions, SNS notifications
+  * various options (sample, %, max, min, etc)
+  * Alarm States: OK, INSUFFICIENT DATA, ALARM
+  * period: length of time in seconds to evaluate metric
+    * high resolution custom metrics: can only choose 10 sec or 30 sec
+
+### X-ray
+* troubleshoot app performance and errors
+* distributed tracing of microservices
+* compatible with
+  * Lambda
+    * x-ray integration on
+    * IAM role is Lambda role
+  * Elastic Beanstalk
+    * set configuration on EB console
+    * or use beanstalk ext: .ebextensions...
+  * ECS/EKS/Fargate (docker)
+    * create docker image that runs daemon or use official x-ray docker image
+    * ensure port mappings and network settings are correct and IAM task roles are defined
+  * ELB
+  * API gatewat
+  * EC2 instances or any app server (including on premise!)
+    * linux system must run x-ray demon
+    * IAM instance role if EC2, otherwise AWS creds on on-premise instance
+* can add annotations to traces to provide extra info
+* can trace
+  * every request
+  * sample request (% or rate per minute)
+* security requires IAM for authorization and KMS for encryption at rest
+* enablement
+  * code: import AWS X-ray SDK
+  * install x-ray daemon or enable x-ray aws integration
+    * works as low level UDP packet interceptor
+    * Lambda already runs x-ray for you
+  * app must have IAM rights to write data to x-ray
+* troubleshooting EC2
+  * ensure EC2 IAM role has permissions
+  * ensure instance is running x-ray daemon
+* troubleshooting Lambda
+  * IAM execution role with proper policy (AWSX-RayWriteOnlyAccess)
+  * x-ray imported in code
+* x-ray deamon/agent has config to send traces across accounts
+  * segments: each app/service will send them
+  * trace: segments collected together to form end-to-end trace
+  * sampling: can reduce traces to a %
+  * annotations: key/value pairs used to index traces and use with filters
+  * metadata is NOT indexed, not used for searches
+* code must be instrumented to used x-ray SDK
+* 
+
+### Implementing X-Ray
+* on Elastic BeanStalk
+  ```
+  # .ebextensions/xray-daemon.config
+  option_settings:
+      aws:alsticveanstalk:xray:
+        XRayEnabled: true
+  ```
+
+### CloudTrail
+* internal monitering of API calls
+* audit changes to AWS resources made by users
+* enabled by default
+* get history of events/API calls 
+* if a resource is deleted, check CloudTrail first!
