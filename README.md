@@ -681,3 +681,207 @@ google 'aws s3 cli' for documentation
   * swap new and old env
   * terminate old env
   * delete CloudFormation stack
+
+## Continuous Integration/ Continuous Devliery (CICD)
+
+### CodeCommit: Storing code
+
+#### Summary
+* allows for version control
+* private git repos
+* no size limits
+* fully managed, highly available
+* only in Cloud account - high security
+* secure
+* integrated with Jenkins, CodeBuild, etc
+* authentication with SSH keys or HTTPS through AWS CLI Authentication helper
+* can enable MFA
+* authorization: IAM Policies manage user/roles rights to repos
+* encryption: respo encrypted at rest using KMS
+* encryption: in flight thorugh HTTPS or SSH 
+* cross-acount access
+  * do not share SSH keys!
+  * do not share AWS creds!
+  * use IAM role + AWS STS with AsumeRole API
+* notification options
+  * SNS (simple notification service)
+  * Lambda
+  * CloudWatch Event Rule
+  * Use case SNS/Lambda
+    * deletion of branch
+    * trigger for push happens in master
+    * notify external Build System
+    * trigger Lambda function to perform codebase analysis (check for creds in code)
+  * Use case CloudWatch
+    * trigger for pull requests (create, update, delete, comment)
+    * commit comment events
+    * trigger notication into SNS topic
+
+#### CodeCommit implementation
+
+* create repo
+* settings
+  * notifications
+  * triggers
+* to make commits
+  * IAM users
+  * security credentials
+  * use HTTPS Git credentials for AWS CodeCommit
+  * generate credentials
+  * git clone and input credentials
+  * work and git ACP!  (git push)
+
+
+### CodeBuild: build and test code
+
+* fully managed build service
+* continous scaling
+* pay for usage: time it takes to complete builds
+* leverages Docker for reproducible builds
+* can extend capabilities using our own Docker images
+* integration with KMS for build artifacts, IAM for build permissions, VPC network security, CloudTrail for logging
+* can source code from Github, CodeCommit
+* Build instructions can be defined in code (buildspec.yml file)
+  * root
+  * define env variables
+  * use SSM parameter store for secret keys
+  * phases: define commands to run 
+    * install dependencies
+    * pre build: final commands to run before build
+    * build commands
+    * post build: zip files, etc
+  * artifacts: what files to upload to S3
+  * cache: files to cache to S3 for future builds
+* output logs to S3 and CloudWatch logs
+* CloudWatch Alarms can be used to detect failed builds and trigger notifications
+* CloudWatch Events/Lambda as a Glue
+* ablity to reproduce CodeBuild locally to troubleshoot
+  * run CodeBuild locally (need Docker)
+  * do this by leveraging CloudBuild agent
+* builds can be definied either with CodePipeline or CodeBuild itself
+
+### Implementing CodeBuild
+
+* CodeBuild -> Build project
+* choose source provider and repo
+* environment: ubuntu
+* runtime: standard
+* image: use latest (standard:4.0)
+* timeout: how long to run before timeout
+* add buildspec.yml
+* add codebuild to pipeline
+
+### CodeDeploy: deploy and provision code to EC2 fleets (not BeanStalk)
+
+* deploy to many EC2 instances
+* instances not managed by Elastic Beanstalk
+* each EC2 MUST be running a CodeDeploy agent
+* agent continuously polls for work to do
+* CodeDeploy sends appspec.yml
+* app is pulled from GitHub or S3
+* EC2 runs deployment instructions
+* agent reports back success/failure
+* EC2 instances are grouped by deployment group
+* can integrate with CodePipeline
+* can reuse existing setup tools, works with any app, and has auto scaling integration
+* can do Blue/Green deployments with EC2 instances (but not with premise)
+* can do lambda deployments
+* does NOT provision resources (instances must exist already)
+
+### CodeDeploy Components
+
+* Application (unique name)
+* Compute platform (EC2/On-premise or Lambda)
+* Deployment configuration
+  * rules for success/failure
+  * can specify min number of healthy instances for deployment
+  * can specify how many instances to deploy at a time
+    * 1
+    * 50%
+    * all at once (dev)
+    * custom
+  * for Lambda: how traffic is routed to functions
+  * new deployments will be deployed to failed instances first
+  * deployment targets: set of EC2 instances with tags
+* Deployment group: group of tagged instances
+* Deployment type: in-place or Blue/Green
+* IAM instance profile: need to give EC2 permissions to pull from S3/GitHub
+* Application revision
+* Service role: role for CodeDeploy to perform
+* Target revision
+
+### Implementing CodeDeploy
+
+* create app in codedeploy
+* create IAM service role for CodeDeploy
+  * roles -> create new role -> AWS service -> CodeDeploy
+* create IAM EC2 service role 
+  * needs S3 read access
+* instance needs IAM role of EC2
+* configure sg: http
+* ssh into instance
+* install agent
+#!/bin/bash
+
+```# Installing CodeDeploy Agent
+sudo yum update
+sudo yum install ruby
+
+# Download the agent (replace the region)
+wget https://aws-codedeploy-eu-west-3.s3.eu-west-3.amazonaws.com/latest/install
+chmod +x ./install
+sudo ./install auto
+sudo service codedeploy-agent status
+```
+
+* add a tag to EC2 instance (ex: env: dev)
+* create deployment group
+  * add service role (service role for code deploy)
+  * add tag created on instance
+  * choose deployment settings
+* create deployment
+  * choose where it is stored
+* upload app to s3 bucket
+* copy path to content
+* in CodeDeploy, use path as revision path
+
+
+
+#### appspec.yml
+
+* File section: how to source and copy from S3/GitHub
+* Hooks: set of instructions to deploy new version
+  * ApplicationStop
+  * DownloadBundle
+  * BeforeInstall
+  * AfterInstall
+  * ApplicationStart
+  * ValidateService: health check
+
+### CodePipeline: automate pipeline from code to ElasticBeanStalk
+
+* continuous delivery
+* visual workflow
+* source: GitHub, CodeCommit, Amazon S3
+* Build: CodeBuild, etc
+* Load Testing: 3rd party tools
+* Deploy: AWS CodeDeploy, Beanstalk, CloudFormation, ECS, etc
+* made of stages
+  * sequential and/or parallel (ex: build, test, etc...)
+  * manual approval can be defined at any stage
+  * each stage creates 'artifacts' stored in S3 and retrieved from S3 bucket for next stage
+* troubleshooting
+  * state change generates CloudWatch event -> trigger SNS notification
+  * can create events for failed pipelines, cancelled stages, etc
+  * pipeline stops at failed stage - can get info in console
+  * can audit API calls using CloudTrail
+  * check IAM Service Role for permissions (IAM Policy)
+* detection using CloudWatch is recommendedcode
+* can add multiple action groups to stage sequentially or parallel (ex: manual approval and then deploy to prod)
+
+### CodeStar
+
+* integrated solution that regroups GitHub, CodeCommit, CodeBuild, CodeDeploy, CloudFormation, CodePipeline, CloudWatch
+* ability to integrate with Cloud9 to obtain web IDE
+* one dashboard
+* limited customization
