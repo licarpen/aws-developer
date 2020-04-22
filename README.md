@@ -3,12 +3,15 @@ Course work from the AWS Certified Developer Associate exam.  Includes notes, sa
 
 ## IAM - Identity Access Management
 
-* consists of Users, Groups, Roles
+* consists of Users, Groups, Roles, Policies
 * Policies are written in JSON
 * Big enterprises can integrate their own repo of users   
   * Identity Federation uses SAML standard (active directory)
+  * Security Assertion Markup Language
+* least privilege principle
+** IAM users defined GLOBALLY **
 
-## EC2
+## EC2 (Elastic Compute Cloud)
 
 Review Section 3.29 EC2 Good Things to Know and Checklist
 
@@ -21,7 +24,7 @@ Review Section 3.29 EC2 Good Things to Know and Checklist
 
 ### Launching an EC2 instance running linux
 
-* choose an AMI (software/operating system to be launched on server)
+* choose an AMI (software/operating system to be launched on server) (AMI = Amazon Machine Image)
   * use Amazon Linux 2
 * choose type of machine (memory and vCPUs)
   * t2.micro is free-tier
@@ -30,7 +33,7 @@ Review Section 3.29 EC2 Good Things to Know and Checklist
 * right-click on instance state in instance dashboard to start, stop, reboot, or terminate
 * by default, EC2 machine comes with a private IP for internal AWS network and a public IP for the www
 
-### SSH
+### SSH (Secure Shell)
 
 * SSH: mac, linux, windows >=10
   * copy Pv4 Public IP (example used below: 54.80.251.93)
@@ -64,7 +67,7 @@ Review Section 3.29 EC2 Good Things to Know and Checklist
 * controls inbound and outbound traffic www <-> EC2 Machine (act as firewall)
 * fundamental to troubleshooting network issues
 * inbound rules default to port 22 and no incoming traffic
-* outbound defaults to allowing ALL inbound traffic
+* outbound defaults to allowing ALL traffic
 * security groups can be attached to multiple instances and vice versa
 * locked down to region/VPC combination
 * best practice: maintain separate security group for SSH access
@@ -145,14 +148,14 @@ echo "Hello World!" > /var/www/html/index.html
 ## Load Balancing an EC2 with ELB (Elasitc Load Balancer)
 
 * A load balancer is a server that fronts your application, forwarding internet traffic to instances downstream
-* spread load across ultiple downstream instances
+* spread load across multiple downstream instances
 * expose a single point of access (DNS) to your application
 * handle failures of downstream instances
 * perform regular health checks on instances
 * provide SSL termination (HTTPS) for your websites
 * enforce stickiness with cookies
 * high availability across zones
-* separate public traffic from public traffic
+* separate public traffic from private traffic
 * all load balancers have static host name (do not resolve and used underlying IP)
 * can scale but not instantaneously (contact AWS for warm-up)
 * 4xx errors: client-induced
@@ -170,6 +173,7 @@ echo "Hello World!" > /var/www/html/index.html
   * balance multiple HTTP applications across machines (target groups)
   * balance to multiple applications on the same machines (ex: containers)
   * balance based on route in URL or hostname in URL
+  * HOSTNAME = different apps
   * ideal for microservices and container-based applications (ECS, docker)
   * has port mapping feature to redirect to a dynamic port
   * stickiness can be enabled at target group level - request assigned an instance
@@ -208,6 +212,7 @@ echo "Hello World!" > /var/www/html/index.html
 ### Health Checks
 
 * supply port and route
+* are these enabled by default?
 
 ## Auto Scaling Groups (ASG)
 
@@ -289,6 +294,7 @@ echo "Hello World!" > /var/www/html/index.html
 
 ## Route53 for Managed Domain Name System (DNS)
 
+* GLOBAL
 * Types
   * A: URL to APv4
   * AAAA: URL to APv6
@@ -326,7 +332,7 @@ echo "Hello World!" > /var/www/html/index.html
   * up to 5 read replicas in any AZ (across region)
   * master takes all writes
   * asynchronous replication - reads are eventually consistent after write
-  * applications must update connection string to leverage read replicas
+  * applications must update SQL connection string to leverage read replicas
 * multi AZ setup for disaster recovery
   * writes to master DB are synchronously replicates to 1 standby in different AZ for failover
   * automatic
@@ -390,7 +396,7 @@ echo "Hello World!" > /var/www/html/index.html
   * Lazy Loading
     * load only when necessary
     * cache is only filled with requested data
-    * node failute is not fatal (just warm the cache)
+    * node failure is not fatal (just warm the cache)
     * cache miss penality of 3 round trips = noticeable delay
     * stale data: data could be outdated
   * Write Through
@@ -399,7 +405,7 @@ echo "Hello World!" > /var/www/html/index.html
     * write penalty (two calls for each write)
     * cache will have a lot of data that is never read
 
-## VPS and 3 Tier Architecture
+## VPC and 3 Tier Architecture
 
 * Public Subnet
   * load balancers
@@ -413,9 +419,9 @@ echo "Hello World!" > /var/www/html/index.html
 * VPC flow logs allow you to monitor traffic i/o of VPC
 * VPC per account per region
 * subnets per VPC per AZ
-* can peer VPC w/i or accross accounts to make it look like they are part of the same network
+* can peer VPC w/i or across accounts to make it look like they are part of the same network
 
-## S3
+## S3 (Simple Storage Service)
 
 ### Buckets
 * globally unique name
@@ -426,14 +432,17 @@ echo "Hello World!" > /var/www/html/index.html
 * objects have key: FULL path to file
 * 5TB max
 * >5GB must use multi-part upload
+* >100 MB multi-part recommended
 * metadata (system/user)
 * tags (up to 10 for security/lifecycle)
 * version ID
   * changed on every update
   * no version = null
 
-### Encryption
-* encryption in flight: SSL/TLS use HTTPS
+### Encryption (SSE = Server Side Encryption)
+* encryption in flight: via SSL/TLS using HTTPS
+  * SSL: secyre socket layer
+  * transport layer security
 * 4 types (IMPORTANT)
   * SSE-S3
     * encrypts objects using keys handled and managed by AWS
@@ -447,14 +456,14 @@ echo "Hello World!" > /var/www/html/index.html
     * access to audit trail
     * set header: "x-amz-server-side-encryption":"AWS:kms"
     * key used is an AWS customer master key
-  * SSE-C
+  * SSE-C (Server Side Encryption - Client)
     * manage own encryption keys
     * HTTPS must be used
     * S3 does NOT store encryption key
     * send data key in header
     * data is encrypted by amazon and then throws away key
   * Client side encryption
-    * encryptiong before sending to S3
+    * encrypting before sending to S3
     * decryption when retrieving
 
 ### Security
@@ -477,7 +486,7 @@ echo "Hello World!" > /var/www/html/index.html
       * add conditions: string aws-encrption-key-header != AES256
   * Object Access Control List (ACL)
   * Bucket Access Control List (ACL) - less common
-* networking
+* networks
   * supports VPC endpoints (not connected to www)
   * logging and audit
     * S3 access logs can be stored in other S3 bucket
@@ -491,6 +500,7 @@ echo "Hello World!" > /var/www/html/index.html
 * properties: static website hosting
 * need to add JSON bucket policy 
   * allow everyone to getObject
+  * troubleshoot 403 
 
 ### S3 CORS
 * if you request data from another S3 bucket, enable CORS
@@ -512,7 +522,7 @@ echo "Hello World!" > /var/www/html/index.html
     * maximize network bandwidth and efficiency
     * decrease time to retry for part if fail
     * MUST use if >5GB
-  * use CLoudFront to cache S3 objects around the world
+  * use CloudFront to cache S3 objects around the world
   * S3 Transfer Acceleration (uses edge locations) just need to change the endpoint you write to, not the code
   * SSE-KMS encryption: limited to AWS limits for KWS usage (~100s -1000s dls/uls /second)
 
@@ -522,12 +532,12 @@ echo "Hello World!" > /var/www/html/index.html
 * use query to retrieve only data you need
 * no subqueries or joins
 
-## CLI
+## CLI (Command Line Interface)
 
 ### Ways to Develop and Perform AWS Tasks
   * CLI on local computer
   * CLI on EC2 machine
-  * SDK on local computer
+  * SDK on local computer (software development kit)
   * SDK on EC2 machine
   * AWS Instance Metadata Service for EC2
 
@@ -599,6 +609,9 @@ google 'aws s3 cli' for documentation
 * `aws configure --profile my-other-profile`
 * `aws s3 ls --profile my-other-profile`
 
+**** Quiz 5 Question 3
+* YOU CANNOT ATTACH EC2 IAM ROLES TO ON-PREMISE SERVERS
+
 ## Elastic BeanStalk
 
 * architecture models
@@ -618,7 +631,7 @@ google 'aws s3 cli' for documentation
   * format must be YAML or JSON format
   * .config extensions (ex: logging.config)
   * able to modify default settings using: option_settings
-  * can add resources such as RDS< ElastiCache, DynamoDB, etc
+  * can add resources such as RDS, ElastiCache, DynamoDB, etc
 * optimize in case of long deployment: package dependencies with source code to improve deployment performance and speed
 * deployment options for updates
   * all at once (instances not available to serve traffic during downtime)
@@ -646,6 +659,7 @@ google 'aws s3 cli' for documentation
     * create a NEW stage environment and deploy new version there
     * Route 53 can use weighted policies to redirect some traffic to stage environment
     * swap URLs 
+    * manual
 
 ### BeanStalk with HTTPS
   * load ssl certificate onto LB 
@@ -666,6 +680,8 @@ google 'aws s3 cli' for documentation
   * based on space
 * option not to delete source code bundle
 
+** Customize runtime of EB by providing a custom platform **
+
 ### Web Server vs Worker Environment
 
 * offload tasks to worker environment (processing video, generating zip file, etc)
@@ -673,7 +689,7 @@ google 'aws s3 cli' for documentation
 
 ### RDS + BeanStalk
 
-* decouple RDS from BeanStalk
+* decouple RDS (database) from BeanStalk
 * if you need to decouple
   * take RDS DB snapshot
   * enable deletion protection
@@ -697,12 +713,12 @@ google 'aws s3 cli' for documentation
 * authentication with SSH keys or HTTPS through AWS CLI Authentication helper
 * can enable MFA
 * authorization: IAM Policies manage user/roles rights to repos
-* encryption: respo encrypted at rest using KMS
+* encryption: repo encrypted at rest using KMS
 * encryption: in flight thorugh HTTPS or SSH 
-* cross-acount access
+* cross-account access
   * do not share SSH keys!
   * do not share AWS creds!
-  * use IAM role + AWS STS with AsumeRole API
+  * use IAM role + AWS STS with AsumeRole API (security token system)
 * notification options
   * SNS (simple notification service)
   * Lambda
@@ -784,9 +800,11 @@ google 'aws s3 cli' for documentation
 * EC2 instances are grouped by deployment group
 * can integrate with CodePipeline
 * can reuse existing setup tools, works with any app, and has auto scaling integration
-* can do Blue/Green deployments with EC2 instances (but not with premise)
+* can do Blue/Green deployments with EC2 instances (but not with on-premise)
 * can do lambda deployments
 * does NOT provision resources (instances must exist already)
+
+** research ON PREMISE instance **
 
 ### CodeDeploy Components
 
@@ -845,8 +863,6 @@ sudo service codedeploy-agent status
 * copy path to content
 * in CodeDeploy, use path as revision path
 
-
-
 #### appspec.yml
 
 * File section: how to source and copy from S3/GitHub
@@ -876,7 +892,7 @@ sudo service codedeploy-agent status
   * pipeline stops at failed stage - can get info in console
   * can audit API calls using CloudTrail
   * check IAM Service Role for permissions (IAM Policy)
-* detection using CloudWatch is recommendedcode
+* detection using CloudWatch is recommended
 * can add multiple action groups to stage sequentially or parallel (ex: manual approval and then deploy to prod)
 
 ### CodeStar
@@ -1130,3 +1146,501 @@ Managing infrastructure as code
 * enabled by default
 * get history of events/API calls 
 * if a resource is deleted, check CloudTrail first!
+
+## Integration and Messaging
+
+* when deploying multiple apps, they need to communicate.
+* two patterns of app communication
+  * synchronous: app to app
+  * asynchronous/event-based: app to queue to app
+
+### SQS: queue
+  * producers send messages to SQS queue
+  * consumers poll messages from SQS queue
+
+#### Standard Queue
+* fully managed
+* enable SSE using KMS
+  * can set Customer Master Key
+  * can set data key reuse period b/w 1 minute and 24 hours (default 5 minutes)
+  * SSE only encrypts body (not metadata)
+* IAM policy must allow usage of SQS
+* SQS queue access policy
+  * finer grain control over IP
+  * control over the time the requests come in
+* No VPC Endpoint - must have interet access to access SQS
+* API
+  * CreateQueue, DeleteQueue
+  * PurgeQueue: deletes all messages in queue
+  * SendMessage, RecevieMessage, DeleteMessage
+  * ChangeMessageVisibility: change timeout
+  * BatchDeleteMessage, etc.... decreases cost  
+  * no BatchReceiveMessage as you can receive up to 10 messages at a time by default
+* scales from 1 message per second to 10,000 per second
+* default retention of messages for 4 days/Max of 14 days
+* no message limit
+* low latency (<10 ms on publish/receive)
+* horizontal scaling for consumers
+* can have duplicate messages
+* can have out of order messages
+* 256KB limit per message
+* delay: none by default
+* can delay up to 15 minutes before consumers can see
+  * set default at queue level or use DelaySeconds parameter
+* message anatomy
+  * message body (string)
+  * add optional message attributes (metadata)
+  * get back message identifier and MD5 hash of body
+* consumers poll for up to 10 messages at a time
+  * must proccess within visibility timeout
+    * once consumer polls the message, it will be INVISIBLE to other consumers
+    * between 0s and 12 hours
+    * defaults to 30 seconds
+    * consumer can use ChangeMessageVisibility API to change visibility while processing a message
+    * DeleteMessage API to tell SQS to delete using message ID and receipt handle
+* Dead Letter Queue
+  * can set threshold of how many times a message can go back to queue
+  * redrive policy
+  * send message to DeadLetterQueue and be sure to process before it expires!
+  * DLQ must be created first and designated as DLQ
+* Long Polling
+  * can wait for messages to arrive if there are no messages in the queue
+  * decreases the number of API calls
+  * increase efficiency and latency
+  * wait time can be between 1 sec to 20 sec
+  * enable at queue level or consumer can poll with WaitTimeSeconds API
+* SQS CLI
+  * aws sqs list-queues
+  * aws sqs list-queues --region us-east-1 
+
+#### FIFO Queue
+* Firt in first out (not available in all regions)
+* naming convention: myqueue.fifo
+* lower throughput: up to 3,000 per second with batching, 300/s without
+* messages are processed in order by consumer
+* messages are sent exactly once
+* no per message delay (only per queue delay)
+* deduplication: do not send message twice!
+  * provide MessageDeduplicationId with your message
+  * dedup interval is 5 minutes
+  * content-based dedup: the DedubID is generated as the SHA-256 of message body
+  * to ensure strict-ordering, specify a MessageGroupId
+  * messages with same group will be sent to same consumercode .
+
+#### SQS Extended Client
+* for sending large messages
+* use SQS Extended Client and send message straight to S3
+* message is then sent with info about where to find message in S3
+
+### SNS: pub/sub
+* send one message to many recipients
+* event producer only sends message to SNS topic
+* event receivers (subscriptions) listen to SNS topic notifications
+* up to 10,000,000 subscriptions per topic
+* subscriber types
+  * SQS
+  * HTTP/HTTPS
+  * email
+  * Lambda
+  * SMS messages
+  * mobile notifications
+* integrates with CloudWatch (alarms), ASG notifications, CloudFormation (failures, etc)
+
+#### Publish
+* Topic Publish
+  * create topic
+  * create subscription(s)
+  * publish to topic
+* Direct Publish
+  * create platform app and endpoints 
+
+#### SNS + SQS:Fan Out
+* push once in SNS
+* have many SQS subscriptions
+* fully decoupled
+* no data loss
+* scalable - can add receivers
+* allows for delayed processing and retries
+
+### Kinesis: real-time streaming
+* alternative to Apache Kafka
+* great for app logs, metrics, IoT, clickstreams
+* good for real-time big data
+* good for streaming processing frameworks
+* automatically replicated to 3 AZ
+* security
+  * control/access using IAM policies
+  * encryption in flight: HTTPS
+  * encryption at rest: KMS
+  * VPC endpoints
+
+#### Kinesis Streams
+* low latency streaming ingest at scale
+* streams divided into ordered shards/partitions
+* shards: think of like queues
+  * write at 1 MB/s or 1000 messages/second 
+  * read at 2 MB/s
+  * billing is per shard
+  * can batch per message calls
+  * number of shards can evolve (reshard or merge)
+  * records are ordered per shard
+* data retention: default 1 day/up to 7 days
+* ability to reprocess and replay data
+* multiple apps can consume same stream
+* enables real-time processing with scale of throughput
+* once data is inserted, it can't be deleted (immutable)
+* PutRecord API + partition key that gets hashed to determine shard ID
+  * same key goes to same partition
+  * message gets sequence number when sent to shard
+  * partition key needs to be highly distributed to ensure that data is spread out amoung shards (user_id is good, country_id bad = HOT partition)
+* can use batching 
+* ProvisionedThroughputExceeded exception
+  * sending too much data to one shard
+  * retry with backoff
+  * increase shards
+  * ensure good partition key
+* consumers
+  * can use normal consumer (CLI, SDK, etc)
+  * can use Kinesis Client Library
+    * KCL uses DynamoDB to checkout offsets and track other workers and share work amongst shards
+    * each shard can only be read by one KCL instance
+    * progress is checkpointed into DynamoDB (needs IAM access)
+    * KCL can run on EC2, Elastic Beansalk, on premise app
+    * read in-order on shard level
+
+#### Kinesis Analytics
+* perform real-time analytics on streams using SQL
+* pay for consumption rate
+* can create streams out of real-time queries
+
+#### Kinesis Firehose
+* load streams into S3, etc
+* near real-time
+* pay for data conversion from one format to another
+* pay for amount of data going through Firehose
+
+## Lambda
+
+* Instead of managing servers, developers just deploy functions.
+* easy monitoring with CloudWatch
+* easy to get more resources per functions (up to 3GB of RAM)
+* integrated with API Gateway, Kinesis, DynamoDB, S3, SNS, SQS, Cognito, IoT, CloudWatch Events and Logs
+
+
+### Lambda Functions
+
+* virtual functions = no servers to manage
+* limited by time = short executions
+* run on-demand
+* scaling is automated
+
+### Lambda Pricing
+* pay per request and compute time 
+* 10^6 requests -> $0.2/10^6 after
+* 400,000 GBs compute time => $1.0/600,000 GBs
+
+### Lambda Configurations
+* timeout: default 3 s/ max 15 minutes (900s)
+* environment variables
+* allocated memory (128M to 3G)
+* can deploy within a VPC and assign SGs
+* IAM role must be attached 
+* edit code
+  * inline
+  * upload .zip
+  * upload from S3
+
+### Lambda Concurrency and Throttling
+* concurrency
+  * up to 1000 executions at a time
+  * can be increased with ticket
+  * can set "reserved concurrency" at function level
+  * each invocation over the concurrency limit will trigger a "throttle"
+* throttle
+  * if synchronous invocation: return ThrottleError 429
+  * if asynchronous: retry automatically 2x and then go to DLQ (Dead Letter Queue)
+    * ensure IAM execution role is set for DLQ (SNS topic or SQS DLQ)
+    * set up in "Asynchronous invocation" section of config
+
+### Lambda Logging, Monitoring, and Tracing
+* Lambda execution logs are stored in CloudWatch Logs
+* Lambda metrics are displayed in CloudWatch Metrics
+* Lambda function must have execution role with IAM policy that authorizes writes to CloudWatch
+* X-Ray
+  * enable X-ray tracing (Lambda runs X-ray demon for you)
+  * use AWS SDK in code
+  * ensure Lambda Function has correct IAM execution role!
+
+### Lambda Limits
+* execution
+  * memory execution: 128MB - 3008MB (64MB increments)
+  * time: 15 minutes
+  * disc capacity in function container: 512MB
+  * concurrency limits: 1000
+* deployment
+  * function deployment size: 50MB max (compressed .zip)
+  * uncompressed deployment size: (code + dependencies): 250MB
+  * can use /tmp directory to load other files at startup
+  * environment variables: 4KB 
+
+### Lambda Versions and Aliases
+* when working on a function, we work on $LATEST, which is mutable
+* once published, it is versioned and IMMUTABLE
+* each version gets own ARN (Amazon Resource Name)
+* each version includes code + configuration
+* can use aliases to point to Lambda versions
+  * ex: DEV alias points to $LATESET
+  * ex: Users might interact with DEV alias
+  * ex: TEST alias points at V2
+  * ex: PROD alias points to V1
+  * aliases are mutable
+  * can do BLUE/GREEN deployment by weighting traffic to different aliases
+
+### Lambda Function Dependencies
+* if lambda function depends on external libraries (AWS X-ray SDK, Database Clients, etc), install packages alongside your code and zip it together
+  * Node.js: use npm and "node-modules" directory
+  * Python: use pip --target options
+  * Java: include .jar files
+* upload zip straight to Lambda (less than 50MB) else S3 first
+* can use native libraries.  compile on Amazon Linux first
+
+#### Terminal Commands
+```
+npm install aws-xray-sdk
+chmod a+r *
+zip -r function.zip
+```
+### Using Lambda with CloudFormation
+* store Lambda zip in S3
+* refer to S3 zip location in CloudFOrmation
+* example of CloudFormation yaml
+```
+Paramters: 
+  S3BucketParam:
+    Type: String
+  S3KeyParam:
+    Type: String
+Resources:
+  LambdaExecutionRole:
+    ...
+  LambdaWithXRay:
+   ...
+```
+
+### Lambda Function /tmp space
+* if function needs to dl big file or needs disk space to perform operations...
+* use /tmp directory
+* max 512MB
+* content remains when execution context is frozen, providing transient cache that can be used for multiple invocations
+* for permanent persistence of objects, use S3
+
+### Lambda Best Practices
+* perform heavy-duty work OUTSIDE of function handler
+  * connect to databases outside of function handler
+  * initialize AWS SDK outside of function handler
+  * pull in dependencies or datasets outside of function handler
+* used environment variables 
+  * for database connection strings, S3 bucket, etc.
+  * passwords, sensitive values, etc and encrypt with KMS
+* minimize deployment package size to its runtime necessities
+  * break down function
+  * remember Lambda limits
+* never use recursive code!!! 
+* don't put Lambda function into VPC unless you have to - takes longer to initialize
+
+### Lamabda@Edge
+* you deployed a CDN using CloudFront
+* to run a global AWS Lambda alongside or implement request filtering before reaching app...
+* use Lambda@Edge
+  * build more responsive apps
+  * you don't manage servers; Lambda is deployed globally
+  * customize CDN content by modifying the following:
+    * viewer/origin request
+    * viewer/origin response
+* use cases
+  * website security and privacy
+  * dynamic web app at edge
+  * SEO 
+  * intelligently route across origins and data centers
+  * bot mitigation at edge
+  * real time image transforms
+  * A/B testing
+  * user authorization and authentication
+  * user prioritization
+  * user tracking and analytics
+
+## DynamoDB
+* all data needed for a query must be present in one row
+* available across 3 AZ
+* NoSQL DB
+* scales massive workloads, distributed database
+* 10^6 requests per second
+* fast and consistent performance (low latency on retrieval)
+* integrated wih IAM for security, authorization, administration
+* enables event-driven programming with DynamoDB streams
+
+### DynamoDB Basics
+* constructed of tables
+* each table has primary key
+  * Option 1: Primary key only (HASH)
+    * must be unique for each item
+    * must be 'diverse' so data is distributed
+    * ex: user id
+  * option 2: Partition key + Sort Key
+    * combination must be unique
+    * data is grouped by partition key
+    * sort key == range key
+* partition keys go through hashing algorithm to know which partition to go to
+* infinite # items/rows
+* items can have attributes (can be added over time and can be null)
+* maximum size of item: 400KB (very big)
+* data types:
+  * Scalar types: string, number, binary, boolean, Null
+  * Document types: List, Map
+  * Set: String set, number set, binary set
+* choose between strongly consistent reads and eventually consistent reads
+  * default: eventually consistent for GetItem, Query, and Scan.
+  * set ConsistentRead = True
+* DynamoDB Security
+  * VPC endpoints available
+  * access fully controlled by IAM
+* backup/restore feature available
+  * point-in-time like RDS
+  * no performance impact
+* Global Tables
+  * multi-region, fully replicated, high performance
+* Amazon DMS can be used to migrate from Mongo, Oracle, MySQL, S3, etc.
+* can launch locally on your own machine for dev
+
+### DynamoDB Privisioned Throughput
+* tables must have provisioned read and write capacity units
+* Read Capacity Units (RCU): throughput for reads
+  * 1 RCU = 1 strongly consistent read per second for UP TO 4KB
+  * 1 RCU = 2 eventually consistent reads per second for UP TO 4KB
+  * rounds up to nearest multiple of 4KB
+* Write Capacity Units (WCU): throughout for writes
+  * 1 write per second for an item UP TO 1 KB in size
+  * rounds up to nearest KB
+* WCU and RCU are spread evenly between partitions
+* option to setup aut-scaling of throughput to meet demand
+* can temporarily use 'burst credit' if exceed throughput
+  * reasons
+    * hot key: one partition key being read a lot (popular item)
+    * hot partition: large items! 
+* if burst credits are empty: "ProvisionedThroughputException"
+* use exponential back-off retry
+* if RCU issue, use DynamoDB Accelerator (DAX)
+
+### DynamoDB Writing Data
+* PutItem (FULL REPLACE)
+* UpdateItem (only updates fields)
+  * can implement Atomic Counters and increase them
+* Conditional Writes: 
+  * accept a write/update only if certain conditions are met
+  * helps with concurrent access to items
+  * no impact on performaces
+* DeleteItem
+  * delete individual row
+  * conditional delete
+* DeleteTable
+  * faster than calling delete on each item
+* BatchWriteItem
+  * up to 25 PutItem/DeleteItem
+  * up to 16MB data written
+  * up to 400KB data per item
+  * allows you to save latency by reducing API calls
+  * operations done in parallel for better efficiency!
+  * part of batch can fail: retry failed items using exponential back-off
+* GetItem
+  * based on primary key (HASH or HASH-RANGE)
+  * eventually consistent by default
+  * ProjectionExpression can be used to get only certain attributes (save in network bandwidth)
+* BatchGetItem:
+  * up to 100 items
+  * up to 16MB data
+  * items retrieved in parallel
+* Queries
+  * PartitionKey = my_partition_key
+  * SortKey value (<=, =, >, etc) optional
+  * FilterExpression to further filter (client side filtering)
+  * returns up to 1 MB data
+  * can specify Limit for number of items or size of items
+  * can paginate results
+  * can query table, local secondary index, or global secondary index
+* Scan
+  * no!
+  * scans the entire table and filters out data
+  * consumes a lot of RCU
+  * returns up to 1MB of data at a time using pagination
+  * Limit impact by using Limit to reduce size of result
+  * for faster performace, use parallel scans
+    * multiple instances scan multiple partitions at the same time
+  * use ProjectionExpression + FilterExpression
+
+### DynamoDB Local Secondary Index (LSI)
+* alternate range key for your table, local to the hash key
+* up to five local secondary indexes per table
+* sort key consists of exactly one scalar attribute (String, Number, or Binary)
+* LSI MUST be defined at table creation time
+
+### DynamoDB Global Secondary Index (GSI)
+* to speed up queries on non-key attributes
+* GSI = partition key + optional sort key
+* index is a new 'table' and attributes can be projected onto it
+  * partition key and sort key are ALWAYS projected: KEYS_ONLY
+  * can specify additional attributes to project: INCLUDE
+  * ALL attributes from main table: ALL
+* must define RCU/WCU for the index
+* can add/modify GSI 
+
+### DynamoDB Indexes and Throttling
+* If writes are throttled on GSI, the main table will be throttled!
+* choose GSI partition keys carefully
+* assign your WCU capacity carefully 
+* not a concernt for LSI (uses the main table)
+
+### DynamoDB Optimistic Concurrency
+* conditional updates/deletes
+* can ensure an item hasn't changes before altering it
+* also called an optimistic locking/concurrency database
+
+### DynamoDB Accelerator (DAX)
+* Seamless cache
+* no application rewrite
+* items live for 5 minutes in cache by default
+* multi AZ
+* up to 10 nodes in cluster (recommended 3 min for production)
+* enable on DAX dashboard
+* not free tier
+
+### DynamoDB Stream
+* changes in DynamoDB can end up in a Stream
+* stream can be read by Lambda (use trigger to push to Lambda function)
+  * react to changes in real time
+  * analytics
+  * create derivative tables/views
+  * insert into ElasticSearch
+* can implement cross-region replication using streams
+* 24 hours data retention
+
+### DynamoDB Time To Live (TTL)
+* automatically delete an item after an expiration date
+* provided at no extra cost/does not use WCU/RCU
+* enabled per row (add a TTL column and add a date there)
+* deletes within 48 hours
+* Streams can help recover deleted items
+
+### DynamoDB CLI
+* --projection-expression : attributes to receive
+* --filter-expression : filter results
+* general CLI pagination
+  * --page-size : full dataset but less data with each API call (to avoid timeouts)
+  * --max-items : pagination : max number of results returned by CLI.  Returns NextToken
+  * --starting-token : specifiy the last received NextToken to get next page
+* see file in resources for examples of command line prompts!
+
+### DynamoDB Transactions
+* ability to create/update/delete multiple rows in different tables at the same time
+* all or nothing transaction (either everything happens or nothing does)
+* consumes 2x CPU/RCU
+
