@@ -1644,3 +1644,190 @@ Resources:
 * all or nothing transaction (either everything happens or nothing does)
 * consumes 2x CPU/RCU
 
+## API Gateway & Cognito
+
+Build, deploy, and manage a serverless API to the cloud
+
+### API Gateway integration
+* outside VPC
+  * Lambda
+  * Endpoints on EC2
+  * Load balancers
+  * any AWS service
+  * external and publicly accessible HTTP endpoints
+* inside VPC
+  * AWS Lambda in VPC
+  * EC2 Endpoints in VPC
+
+### API Gateway Deployment
+* changes in API Gateway are not always effective right away
+* need to make a 'deployment' of changes for them to be in effeect
+* changes are deployed to stages (dev, test, prod, etc)
+* each stage has config parameters
+* each stage can be rolled back using history of deployments
+* stage variables
+  * like env variables for API Gateway
+  * can change them and config changes as a result
+  * can be used in Lambda function ARN, HTTP Endpoint, Parameter mapping template
+  * use cases
+    * configure HTTP endpoints your stages talk to (dev, prod)
+    * pass config parameters to Lambda functions using mapping templates
+    * are passed to "context" object in Lambda
+  * use stage variable to point to Lambda alias
+* canary deployments
+  * choose % of traffic that canary channel receives
+    * can keep logs and metrics separate for better monitoring
+    * can override stage variables for canary
+
+### Mapping Templates
+* can be used to modify requests and responses
+  * rename parameters
+  * modify body content
+  * add headers
+  * map JSON to XML for sending to backend or back to client
+  * filter output results
+* uses Velocity Template Language (VTL): for loops, it, etc...
+* implementation
+  * resources
+  * choose on section you want to change
+    * example: integration response to convert response from JSON to XML
+  * click down arrow by response
+  * mapping template
+  * application/json
+  * generate template: EMPTY
+  * inputRoot is response
+  ```
+  #set($inputRoot = $input.path('$'))
+<xml>
+    <response>
+        <body>
+            $inputRoot.body
+        </body>
+        <statusCode>
+            $inputRoot.statusCode
+        </statusCode>
+    </response>
+</xml>
+  ```
+
+### Gateway Swagger / Open API Spec
+* common way of defining REST APIs, using API definition as code
+* import existing Swagger / openAPI 3.0 spec to API Gateway
+  * method
+  * method request
+  * intergration request
+  * method response
+  * AWS extensions
+* can EXPORT current API as Swagger
+* can be written in YAML or JSON
+* using Swagger, can generate SDK for apps
+
+### Caching API Responses
+* default time in cache is 300s: max time 3600s
+* caches are defined by stage (dev, prod, etc)
+* capacity between 0.5GB to 237GB
+* possible to control settings for specific methods (GET, etc)
+* ability to flush entire cache (invalidate it) immediately
+* encryption available
+* CLIENTS CAN INVALIDATE CACHE using header Cache-Control:max-age=0 if they have IAM authorization to do so
+
+### API Gateway Logging, Monitoring, Tracing
+* CloudWatch logs
+  * enable CloudWatch logging at stage level with log level
+  * can override settings on a per API basis (ex: error, debug, info)
+  * log contains info about request/response body
+  * careful with logging full requests/responses data if sensitive info
+* CloudWatch Metrics
+  * metrics are by stage
+  * possible to enable detailed metrics
+* X-Ray
+  * enable tracing to get extra info about requests
+  * X-Ray API Gateway + AWS Lambda gives you complete info
+* implementation
+  * go to settings in API Gateway and provide CloudWatch log role ARN
+
+### API Gateway CORS
+* must enable CORS when you receive API calls from another domain
+* OPTIONS preflight request must contain headers
+  * Access-Control-Allow-Methods
+  * Access-Control-Allow-Headers
+  * Access-Control-Allow-Origin
+* enable in console
+
+### API Gateway Usage Plans and API Keys
+* limit customers' usage of API
+* Usage plans
+  * throttling: set overall capacity and burst capacity
+  * Quotas: set number of requests made per day/week/month
+  * associate with stages
+* API Keys
+  * generate 1 per customer
+  * associate with usage plans
+  * can bill clients for use
+
+### API Gateway Security
+* IAM Permissions
+  * create IAM policy authorization and attach User/Role
+  * API Gateway will verify IAM permissions passed by calling app
+  * can provide access internally
+  * leverages Sig V4 where IAM credentials are in headers
+  * no additional cost
+  * handles authorization and authentication
+  * great for users already in your account
+* Lambda Authorizer (formerly Custom Authorizers)
+  * uses Lambda to validate token in header being passed
+  * option to cache result of authentication
+  * helps with use of OAuth/SAML/3rd party auth
+  * Lambda returns IAM policy for user that is either valid or invalid
+  * can handle authorization and authentication (IAM policy is returned)
+* Cognito User Pools
+  * YOU manage your own user pool
+  * fully manages user lifecycle
+  * no custom implmentation
+  * ONLY HELPS WITH AUTHENTICATION (no authorization)
+  * you need to implement authorization in the backend (google, etc)
+
+### AWS Cognito
+* used when we want to give users an identity so that they can interact with our application
+* Cognito User Pools
+  * Sign in functionality for app users
+  * intergrate with API Gateway
+  * serverless database of users for your mobile apps
+  * simple login: username, password
+  * possibility to verify emails, phones, etc, and add MFA
+  * can enable Federated Identities (google, facebook, etc)
+  * get back JSON Web Token (JWT)
+  * can be integrated with API Gateway for authentication
+* Cognito Identity Pools (Federated Identity) 
+  * Provide AWS credentials to useres so they can access AWS resources directly
+  * integrate with Cognito User Pools as an identity provider
+  * goal is to provide direct access to AWS resources from the client side
+  * log in to federated identity provider (or remain anonymous)
+  * get temp AWS credentials back from Federated Identity Pool
+  * creds come with pre-defined IAM policy stating permissions
+  * ex: povide temp access to write to S3 bucket using Facebook login
+* Cognito Sync
+  * synchronize data from device to Cognito
+  * deprecated and replaced by AppSync
+  * cross-device synchronization
+  * offline capability
+  * requires Federated Identity Pool
+
+### Serverless Application Model (SAM)
+* framework for developing and deploying serverless apps
+* all config is YAML code
+* generate complex CloudFormation from simple SAM YAML file
+* supports anything from CloudFormation (Outputs, Mappings, Parameters, Resources, etc)
+* 2 commands to deploy to AWS
+* can use CodeDeploy to deploy Lambda functions
+* can help you run Lambda, API Gateway, DynamoDB locally
+* transform header indicates it's a SAM template
+  * Transform: 'AWS::Serverless-2016-10-31'
+* Write code
+  * AWS::Serverless::Function
+  * AWS::Serverless::Api
+  * AWS::Serverless::SimpleTable
+* Package and Deploy
+  * aws cloudformation package / sam package
+  * aws cloudformation deploy / sam deploy
+
