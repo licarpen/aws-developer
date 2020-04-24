@@ -1830,4 +1830,118 @@ Build, deploy, and manage a serverless API to the cloud
 * Package and Deploy
   * aws cloudformation package / sam package
   * aws cloudformation deploy / sam deploy
+* see commands.sh file and template.yaml 
+* set environment variables in template.yaml
+* use CloudFormation Designer to explore
+* AWS serverless application repos contains sourcecode for a variety of SAM templates
+* SAM policy templates
+  * templates to apply permissions to Lambda functions
+  * examples
+    * S3ReadPolicy
+      * read only permissions to objects in S3
+    * SQSPollerPolicy
+      * allows to poll an SQS queue
+    * DynamoDBCrudPolicy
+      * create, read, update, delete
 
+## Elastic Container Service (ECS)
+
+### Docker
+* software development platform for deploying apps
+* apps are packaged in containers that can be run on any OS
+* images stored in Docker repos
+  * Public: Docker Hub (hub.docker.com)
+  * Private: Amazon ECR (Elastic Container Registry)
+* docker vs virtual machines
+  * all resources are shared with a host
+  * can have many containers on one server
+* need a container management platform
+  * ECS: Amazon's own platform
+  * Fargate: Amazon's serverless
+  * EKS: Amazon's managed Kubernetes (open source)
+
+### ECS Clusters
+* logical grouping of EC2 instances
+* EC2 instances run ECS agent
+* ECS agents register the instance to the ECS cluster
+* EC2 instances run special AMI made specifically for ECS
+
+### ECS Task Definitions
+* metadata in JSON form that tell ECS how to run a Docker Container
+* information
+  * image name
+  * port binding for container and host
+  * memory and CPU required
+  * environment variables
+  * networking info
+
+### ECS Service
+* define tasks that should run and how they should run
+* ensures that number of tasks desired are running across fleet
+
+### ECS Service with Load Balancers
+* can't run multiple tasks on one EC2 instance is host/port is defined
+* run multiple tasks on the same EC2 instance using dynamic port forwarding
+* leave host port empty (will result in random host port)
+  * now can run two tasks on same EC2 instance
+  * but this is insecure! Need a load balancer
+* ALB uses dynamic host port mapping, allowing multiple tasks per container instance.  Mulsiple services can use the same listener port on a single loab balancer with rule-based routing and paths
+* ALB need sg to allow inbound traffic from all traffic from the ALB sg (i.e. allow ALB to talk to any ports on EC2 instance for dynamic port feature on ECS)
+
+### ECR
+* been using Docker images form Docker Hub (public)
+* ECR is pricate Docker image repo
+* access is controlled through...
+  * you guessed it!  IAM (permission errors -> policy)
+* run commands to push/pull
+  * $(aws ecr get-login --no-include-email --region eu-west-1)
+  * docker push your-ecs-url
+  * docker pull your-ecs-url
+* see Dockerfile in ecs folder
+* see bootstrap.sh to review commands to push/pull
+
+### Fargate
+* serverless 
+* just create task definitions and AWS will run containers
+* to scale, just increase task number
+
+### ECS & X-Ray
+* options for implementation
+  * use container as x-ray demon (task)
+  * use side car pattern: run 1 x-ray demon container alongside each application container
+  * Fargate task with x-ray sidecar 
+    * map container port of x-ray port to 200 udp
+    * set env var 
+    * link two containers from network
+
+### Elastic Beanstalk + ECS
+* can run Elastic Beanstalk in Single or Multi Docker Container mode
+* Multi Docker helps run multiple containers per EC2 instance in EB which creates
+  * ECS cluster
+  * EC2 instanced, configured to use the ECS cluster
+  * Load Balancer in high availability mode
+  * task definitions and executions
+* requires config file Dockerrun.aws.json at root
+* your Docker images must be pre-built and stored in ECR for example
+
+### ECS Summary
+* used to run Docker containers
+* integrates with CloudWatch logs - setup logging at task definition level
+* each container will have a different log stream
+* three flavors
+  * ECS Classic: provision EC2 Instances to run containers onto
+    * create EC2 Instances
+    * must configure /etc/ecs/ecs.config with cluster name
+      * allow tasks to endorse IAM roles using ECS_ENABLE_TASK_IAM_ROLE
+    * EC2 Instance must run ECS agent
+    * can run multiple containers by not specifying host port and using ALB with dynamic port mapping
+    * EC2 instance sg must all traffic from ALB on all ports
+    * ECS tasks can have IAM roles to execute actions against AWS
+    sg operates at instance level, not task level
+  * Fargate: serverless
+    * AWS provisions containers and assignes them ENI
+    * Fargate tasks can have IAM roles
+  * EKS: managed Kubernetes by AWS
+* ECR
+  * to push/pull: $(aws ecr get-login-password....) & docker push/pull
+  * troubleshooting: check IAM permissions
