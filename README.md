@@ -1168,8 +1168,19 @@ Managing infrastructure as code
   * asynchronous/event-based: app to queue to app
 
 ### SQS: queue
-  * producers send messages to SQS queue
-  * consumers poll messages from SQS queue
+* producers send messages to SQS queue
+* consumers poll messages from SQS queue
+
+* Q: Does Amazon SQS guarantee delivery of messages?
+    * Standard queues provide at-least-once delivery, which means that each message is delivered at least once.
+    * FIFO queues provide exactly-once processing, which means that each message is delivered once and remains available until a consumer processes it and deletes it. Duplicates are not introduced into the queue.
+* You can tag and track your queues for resource and cost management using cost allocation tags. A tag is a metadata label comprised of a key-value pair. For example, you can tag your queues by cost center and then categorize and track your costs based on these cost centers.
+* To determine the time-in-queue value, you can request the SentTimestamp attribute when receiving a message. Subtracting that value from the current time results in the time-in-queue value.
+* sharing queues
+  * associate an access policy statement with queue to be shared
+  * provide user with full URL for queue (response in CreateQueue and ListQueues)
+* cannot share messages between queues in different regions - each queue is independent within a region
+* use SetQueueAttributes to restrict access to message queue by IP address, time of day
 
 #### Standard Queue
 * fully managed
@@ -1191,19 +1202,24 @@ Managing infrastructure as code
   * no BatchReceiveMessage as you can receive up to 10 messages at a time by default
   * WaitTimeSeconds: long polling
 * scales from 1 message per second to 10,000 per second
-* default retention of messages for 4 days/Max of 14 days
+* default retention of messages for 4 days/Min 1 minute/Max 14 days
+  * MessageRetentionPeriod (in seconds)
 * no message limit
 * low latency (<10 ms on publish/receive)
 * horizontal scaling for consumers
 * can have duplicate messages
 * can have out of order messages
 * 256KB limit per message
+  * SetQueueAttributes method -> MaximumMessageSize attribute
+  * 1KB to 256KB of XML, JSON, unformatted text
 * delay: none by default
 * can delay up to 15 minutes before consumers can see
   * set default at queue level or use DelaySeconds parameter
 * message anatomy
   * message body (string)
   * add optional message attributes (metadata)
+    * An Amazon SQS message can contain up to 10 metadata attributes. You can use message attributes to separate the body of a message from the metadata that describes it. This helps process and store information with greater speed and efficiency because your applications don't have to inspect an entire message before understanding how to process it.
+    * Amazon SQS message attributes take the form of name-type-value triples. The supported types include string, binary, and number (including integer, floating-point, and double).
   * get back message identifier and MD5 hash of body
 * consumers poll for up to 10 messages at a time
   * must proccess within visibility timeout
@@ -1212,6 +1228,7 @@ Managing infrastructure as code
     * defaults to 30 seconds
     * consumer can use ChangeMessageVisibility API to change visibility while processing a message
     * DeleteMessage API to tell SQS to delete using message ID and receipt handle
+      * When you issue a DeleteMessage request on a previously-deleted message, Amazon SQS returns a success response
 * Dead Letter Queue
   * can set threshold of how many times a message can go back to queue
   * redrive policy
@@ -1239,7 +1256,15 @@ Managing infrastructure as code
   * dedup interval is 5 minutes
   * content-based dedup: the DedubID is generated as the SHA-256 of message body
 * to ensure strict-ordering, specify a MessageGroupId
-* messages with same group will be sent to same consumercode .
+* messages with same group will be sent to same consumercode
+  * If multiple hosts (or different threads on the same host) send messages with the same message group ID are sent to a FIFO queue, Amazon SQS delivers the messages in the order in which they arrive for processing. To ensure that Amazon SQS preserves the order in which messages are sent and received, ensure that multiple senders send each message with a unique message group ID.
+* Can I convert my existing standard queue to a FIFO queue?
+  * No. You must choose the queue type when you create it. However, it is possible to move to a FIFO queue.
+* Some AWS or external services that send notifications to Amazon SQS might not be compatible with FIFO queues, despite allowing you to set a FIFO queue as a target:
+  * Auto Scaling Lifecycle Hooks
+  * AWS IoT Rule Actions
+  * AWS Lambda Dead Letter Queues
+* use FIFO DLQ with FIFO queue
 
 #### SQS Extended Client
 * for sending large messages
@@ -1532,7 +1557,10 @@ Resources:
 * can launch locally on your own machine for dev
 
 ### DynamoDB Privisioned Throughput
+* free tier applies at account level!
+  * 25 WCU/RCU
 * tables must have provisioned read and write capacity units
+  * minimum: 1 WCU/RCU
 * Read Capacity Units (RCU): throughput for reads
   * 1 RCU = 1 strongly consistent read per second for UP TO 4KB
   * 1 RCU = 2 eventually consistent reads per second for UP TO 4KB
@@ -1551,6 +1579,7 @@ Resources:
 * if RCU issue, use DynamoDB Accelerator (DAX)
 
 ### DynamoDB Writing Data
+* you can use the PutItem or BatchWriteItem APIs to insert items. Then, you can use the GetItem, BatchGetItem, or, if composite primary keys are enabled and in use in your table, the Query API to retrieve the items you added to the table.
 * PutItem (FULL REPLACE)
 * UpdateItem (only updates fields)
   * can implement Atomic Counters and increase them
@@ -1601,6 +1630,7 @@ Resources:
 * up to five local secondary indexes per table
 * sort key consists of exactly one scalar attribute (String, Number, or Binary)
 * LSI MUST be defined at table creation time
+* hash key of LSI is the same as the hash key of the main table
 
 ### DynamoDB Global Secondary Index (GSI)
 * to speed up queries on non-key attributes
@@ -1875,7 +1905,7 @@ Build, deploy, and manage a serverless API to the cloud
 
 ## Elastic Container Service (ECS)
 
-* Amazon ECS lets you easily build all types of containerized applications, from long-running applications and microservices to batch jobs and machine learning applications. You can migrate legacy Linux or Windows applications from on-premises to the cloud and run them as containerized applications using Amazon ECS.
+* Amazon ECS lets you easily build all types of containerized applications, from long-running applications and microservices to batch jobs and machine learning applications. You can migrate legacy Linux or Windows applications from on-premise to the cloud and run them as containerized applications using Amazon ECS.
 
 ### Docker
 * software development platform for deploying apps
@@ -1911,12 +1941,12 @@ Build, deploy, and manage a serverless API to the cloud
 * ensures that number of tasks desired are running across fleet
 
 ### ECS Service with Load Balancers
-* can't run multiple tasks on one EC2 instance is host/port is defined
+* can't run multiple tasks on one EC2 instance if host/port is defined
 * run multiple tasks on the same EC2 instance using dynamic port forwarding
 * leave host port empty (will result in random host port)
   * now can run two tasks on same EC2 instance
   * but this is insecure! Need a load balancer
-* ALB uses dynamic host port mapping, allowing multiple tasks per container instance.  Mulsiple services can use the same listener port on a single loab balancer with rule-based routing and paths
+* ALB uses dynamic host port mapping, allowing multiple tasks per container instance.  Multiple services can use the same listener port on a single load balancer with rule-based routing and paths
 * ALB need sg to allow inbound traffic from all traffic from the ALB sg (i.e. allow ALB to talk to any ports on EC2 instance for dynamic port feature on ECS)
 
 ### ECR
@@ -1949,7 +1979,7 @@ Build, deploy, and manage a serverless API to the cloud
 * can run Elastic Beanstalk in Single or Multi Docker Container mode
 * Multi Docker helps run multiple containers per EC2 instance in EB which creates
   * ECS cluster
-  * EC2 instanced, configured to use the ECS cluster
+  * EC2 instance, configured to use the ECS cluster
   * Load Balancer in high availability mode
   * task definitions and executions
 * requires config file Dockerrun.aws.json at root
