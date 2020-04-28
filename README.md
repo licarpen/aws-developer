@@ -614,6 +614,8 @@ google 'aws s3 cli' for documentation
 
 ## Elastic BeanStalk
 
+* AWS Elastic Beanstalk lets you manage all of the resources that run your application as environments where each environment runs only a single application version at a time. When an environment is being created, Elastic Beanstalk provisions all the required resources needed to run the application version.
+
 * architecture models
   * single instance deployment: dev
   * LB + ASG: production/pre-prod web apps
@@ -699,6 +701,14 @@ google 'aws s3 cli' for documentation
   * delete CloudFormation stack
 
 ## Continuous Integration/ Continuous Devliery (CICD)
+
+* *"CodeDeploy" : You can deploy nearly unlimited variety of application content, such as code, serverless AWS Lambda functions, web and configuration files, executables, packages, scripts, multimedia files, and so on.
+
+* "CodeBuild" - AWS CodeBuild is a fully managed continuous integration service that compiles source code, runs tests, and produces software packages that are ready to deploy
+
+* * "CodeCommit" - CodeCommit eliminates the need to operate your own source control system or worry about scaling its infrastructure
+
+"CodePipeline" - CodePipeline automates the build, test, and deploy phases of your release process every time there is a code change, based on the release model you define
 
 ### CodeCommit: Storing code
 
@@ -917,6 +927,7 @@ Managing infrastructure as code
 * deleting a stack deletes all artifacts associated with it
 * template helpers 
   * references and functions
+* Any resources created as part of your .ebextensions is part of your CloudFormation template and will get deleted if the environment is terminated
 
 ### Deploying CloudFormation templates
 
@@ -941,11 +952,12 @@ Managing infrastructure as code
 
 #### Parameters
 * way to provide inputs to your AWS CloudFormation template
-* enable resuing templates across apps
+* enable reusing templates across apps
 * if a resource configuration is likely to change in the future, use a parameter to avoid re-uploading template to change the content
 * use Fn::Ref
   * !Ref
   * can reference parameters or resources
+    * returns value of parameter or id of resources
 * pseudo parameters
   * AWS::AccountId
   * AWS::NotificationARNs
@@ -1031,6 +1043,7 @@ Managing infrastructure as code
   * option to disable roll back and troubleshoot
 * Stack update fails
   * stack auto rolls back to previous known working state
+  * update_fails
   * check log for error messages
 
 ## Monitoring & Audit
@@ -1043,7 +1056,7 @@ Managing infrastructure as code
     * up to 10 dimensions per metric
   * have timestamps
   * dashboard
-  * default: 5 minutes
+  * default: once every 5 minutes
     * can enable detailed monitoring for extra cost
     * can be used to decrease ASG response time
   * recall: EC2 Instance Memory usage not pushed by default.  Push from instance as custom metric
@@ -1070,7 +1083,7 @@ Managing infrastructure as code
   * architecture
     * groups (represent app)
     * stream (instances within app/logfiles/containers)
-  * Can define log expiration policies (never, 30 days, etc)
+  * can define log expiration policies (never, 30 days, etc)
   * to send logs, ensure IAM permissions
   * can encrypt logs using KMS at rest at group level
 * Events
@@ -1092,16 +1105,17 @@ Managing infrastructure as code
 * distributed tracing of microservices
 * compatible with
   * Lambda
-    * x-ray integration on
+    * check x-ray integration
     * IAM role is Lambda role
   * Elastic Beanstalk
     * set configuration on EB console
     * or use beanstalk ext: .ebextensions...
+    * xray-demon.config
   * ECS/EKS/Fargate (docker)
-    * create docker image that runs daemon or use official x-ray docker image
+    * create docker image that runs demon or use official x-ray docker image
     * ensure port mappings and network settings are correct and IAM task roles are defined
   * ELB
-  * API gatewat
+  * API gateway
   * EC2 instances or any app server (including on premise!)
     * linux system must run x-ray demon
     * IAM instance role if EC2, otherwise AWS creds on on-premise instance
@@ -1110,7 +1124,7 @@ Managing infrastructure as code
   * every request
   * sample request (% or rate per minute)
 * security requires IAM for authorization and KMS for encryption at rest
-* enablement
+* implementation
   * code: import AWS X-ray SDK
   * install x-ray daemon or enable x-ray aws integration
     * works as low level UDP packet interceptor
@@ -1118,7 +1132,7 @@ Managing infrastructure as code
   * app must have IAM rights to write data to x-ray
 * troubleshooting EC2
   * ensure EC2 IAM role has permissions
-  * ensure instance is running x-ray daemon
+  * ensure instance is running x-ray demon
 * troubleshooting Lambda
   * IAM execution role with proper policy (AWSX-RayWriteOnlyAccess)
   * x-ray imported in code
@@ -1129,9 +1143,8 @@ Managing infrastructure as code
   * annotations: key/value pairs used to index traces and use with filters
   * metadata is NOT indexed, not used for searches
 * code must be instrumented to used x-ray SDK
-* 
 
-### Implementing X-Ray
+#### Implementing X-Ray
 * on Elastic BeanStalk
   ```
   # .ebextensions/xray-daemon.config
@@ -1176,6 +1189,7 @@ Managing infrastructure as code
   * ChangeMessageVisibility: change timeout
   * BatchDeleteMessage, etc.... decreases cost  
   * no BatchReceiveMessage as you can receive up to 10 messages at a time by default
+  * WaitTimeSeconds: long polling
 * scales from 1 message per second to 10,000 per second
 * default retention of messages for 4 days/Max of 14 days
 * no message limit
@@ -1224,8 +1238,8 @@ Managing infrastructure as code
   * provide MessageDeduplicationId with your message
   * dedup interval is 5 minutes
   * content-based dedup: the DedubID is generated as the SHA-256 of message body
-  * to ensure strict-ordering, specify a MessageGroupId
-  * messages with same group will be sent to same consumercode .
+* to ensure strict-ordering, specify a MessageGroupId
+* messages with same group will be sent to same consumercode .
 
 #### SQS Extended Client
 * for sending large messages
@@ -1247,6 +1261,7 @@ Managing infrastructure as code
 * integrates with CloudWatch (alarms), ASG notifications, CloudFormation (failures, etc)
 
 #### Publish
+* review
 * Topic Publish
   * create topic
   * create subscription(s)
@@ -1263,6 +1278,7 @@ Managing infrastructure as code
 * allows for delayed processing and retries
 
 ### Kinesis: real-time streaming
+* polling
 * alternative to Apache Kafka
 * great for app logs, metrics, IoT, clickstreams
 * good for real-time big data
@@ -1468,8 +1484,11 @@ Resources:
   * user authorization and authentication
   * user prioritization
   * user tracking and analytics
+* CloudFront: If you use the Adobe Media Server RTMP protocol to distribute media files on demand, your origin server is always an Amazon S3 bucket.
 
 ## DynamoDB
+
+* Amazon DynamoDB is a no relational database that delivers reliable performance at any scale. It is a fully managed, multi-region, multi-master database that provides consistent single-digit millisecond latency.
 * all data needed for a query must be present in one row
 * available across 3 AZ
 * NoSQL DB
@@ -1775,6 +1794,7 @@ Build, deploy, and manage a serverless API to the cloud
   * handles authorization and authentication
   * great for users already in your account
 * Lambda Authorizer (formerly Custom Authorizers)
+  * "Lambda Authorizer" : An Amazon API Gateway Lambda authorizer (formerly known as a custom authorizer) is a Lambda function that you provide to control access to your API. A Lambda authorizer uses bearer token authentication strategies, such as OAuth or SAML. Before creating an API Gateway Lambda authorizer, you must first create the AWS Lambda function that implements the logic to authorize and, if necessary, to authenticate the caller.
   * uses Lambda to validate token in header being passed
   * option to cache result of authentication
   * helps with use of OAuth/SAML/3rd party auth
@@ -1786,6 +1806,15 @@ Build, deploy, and manage a serverless API to the cloud
   * no custom implmentation
   * ONLY HELPS WITH AUTHENTICATION (no authorization)
   * you need to implement authorization in the backend (google, etc)
+
+
+* "Cognito User Pools" : After successfully authenticating a user, Amazon Cognito issues JSON web tokens (JWT) that you can use to secure and authorize access to your own APIs, or exchange for AWS credentials.
+
+* "API Gateway" - If you are processing tokens server-side and using other programming languages not supported in AWS it may be a good choice other than that go with a service already providing the functionality
+
+* "Cognito Identity Pools" - A way to authorize your users to use the various AWS services vs authorization in your application
+
+* "Cognito Sync" - You can use it to synchronize user profile data across mobile devices and the web without requiring your own backend
 
 ### AWS Cognito
 * used when we want to give users an identity so that they can interact with our application
@@ -1799,7 +1828,7 @@ Build, deploy, and manage a serverless API to the cloud
   * get back JSON Web Token (JWT)
   * can be integrated with API Gateway for authentication
 * Cognito Identity Pools (Federated Identity) 
-  * Provide AWS credentials to useres so they can access AWS resources directly
+  * Provide AWS credentials to users so they can access AWS resources directly
   * integrate with Cognito User Pools as an identity provider
   * goal is to provide direct access to AWS resources from the client side
   * log in to federated identity provider (or remain anonymous)
@@ -1846,6 +1875,8 @@ Build, deploy, and manage a serverless API to the cloud
 
 ## Elastic Container Service (ECS)
 
+* Amazon ECS lets you easily build all types of containerized applications, from long-running applications and microservices to batch jobs and machine learning applications. You can migrate legacy Linux or Windows applications from on-premises to the cloud and run them as containerized applications using Amazon ECS.
+
 ### Docker
 * software development platform for deploying apps
 * apps are packaged in containers that can be run on any OS
@@ -1890,7 +1921,7 @@ Build, deploy, and manage a serverless API to the cloud
 
 ### ECR
 * been using Docker images form Docker Hub (public)
-* ECR is pricate Docker image repo
+* ECR is private Docker image repo
 * access is controlled through...
   * you guessed it!  IAM (permission errors -> policy)
 * run commands to push/pull
@@ -1945,3 +1976,197 @@ Build, deploy, and manage a serverless API to the cloud
 * ECR
   * to push/pull: $(aws ecr get-login-password....) & docker push/pull
   * troubleshooting: check IAM permissions
+
+  ## Security
+  
+  ### Encryption in Flight
+  * SSL
+  * Data is encrypted before sending and decrypted after receiving
+  * SSL certificate helps with encryption (HTTPS)
+  
+  ### Encryption at Rest - Server Side
+  * data is encrypted after being received by server and decrypted before being sent
+  * server manages a key for encryption/decryption
+
+  ### Encryption at Rest - Client side
+  * data is never decrypted by server
+  * client leverages Envelope Encryption to encrypt before sending to server
+  * data must be decrypted by a receiving client with access to key
+
+  ### Key Management Service (KMS)
+  * AWS manages keys for client
+  * Fully integrated with IAM for authorization
+  * Customer Master Key (CMK) used to encrypt data can never be retrieved by client
+  * rotate it for extra security
+  * never store secrets in plain text
+  * encrypt secrets first then store in code/environment variables
+  * KMS can only encrypt up to 4KB of data per call
+  * for data > 4KB, use envelope encryption
+  * to grant access to KMS to user:
+    * ensure Key Policy allows user
+    * ensure IAM policy allows API calls
+  * able to fully manage keys and policies
+    * create, rotate, disable, enable
+  * can audit key usage using CloudTrail
+  * 3 types CMK
+    * AWS Managed Service Default CMK: free
+    * to create User Key (custom) $1/month
+    * import User Keys $1/month
+  * pay for API calls to KMS ($0.03/10000 calls)
+
+### Encrypt/Decrypt API
+* client wants to encrypt a secret
+* sends it to KMS via Encrypt API
+* API checks IAM permissions and performs encryption using CMK
+* API sends back encrypted secret
+* client wants to decrypt: opposite of above
+
+### Example
+* instead of putting db password directly in lambda function or as environment variable, use 'encryption configuration' when setting up lambda function
+* enter environment variable for string you want to encrypt
+* enable helpers for encryption in transit
+* create CMK in KMS
+* in lambda, choose KMS key to encrypt at rest (default aws/lambda or customer master key)
+* choose encrypt for environment variable and choose CMK
+  * click Decrypt secrets snippet for code to include in lambda function
+* add code snippet to lambda function
+* modify IAM role for lambda function to allow decrypt calls
+  * go to role
+  * add inline policy
+  * choose KMS
+  * filter actions 'decrypt'
+  * choose Decrypt
+  * add ARN resource
+    * go to KMS to get full ARN for key
+
+### Encryption SDK
+* AWS Encryption SDK helps with implementation of Envelope Encryption
+* difference from the S3 Encryption SDK!
+* Encryption SDK also exists as CLI tool that can be installed
+* for encryption of data over 4 KB, use Encryption SDK/Envelope Encryption via GenerateDataKey API
+
+### Paramter Store
+* secure storage for configuration and secrets
+* optional seamless encryption using KMS
+* serverless, scalable, durable, easy SDK
+* free tier
+  * 10,000 parameters for free
+  * up to 4KB for parameter value size
+  * no parameter policies available
+* paid tier
+  * unlimited parameters
+  * up to 8KB parameter value size
+  * parameter policies available
+* version tracking of configurations/secrets
+* configuration management using path and IAM
+* notifications via CloudWatch Events
+* integration with CloudFormation
+* uses API to get parameters fro hierarchy tree: GetParameters or GetParametersByPath
+
+#### Implementation
+* go to services -> Systems Manager -> Parameter Store
+* add all parameters you want
+* CLI: 
+  * aws ssm get-parameters --names /my-app/dev/db-url /my-app/dev/db-password --with-decryption
+  * aws ssm get-parameters-by-path --path /my-app/ --recursive
+* using Lambda
+  * lecture 200
+
+## IAM Best Practices 
+* never use root credentials
+* enable MFA for root
+* grant least privilege
+* never store IAM key credentials on any machine but on personal computer or on-premise server
+* on-premise: call STS to get temp cred
+* EC2 machines should have own roles
+* Lambda functons should have own roles
+* ECS Tasks should have own roles
+  * ECS_ENABLE_TASK_IAM_ROLE=true
+* CodeBuild should have its own service
+* create least-privileges role for any service
+* create roles per application (do not reuse roles)
+* define IAM role for other accounts to access
+I define which accounts can access the IAM role
+* use AWS STS (Security Token Service) to retrieve creds and impersonate the IAM Role you have access to (AssumeRoleAPI)
+  * not a feature of API Gateway
+* temp creds valid b/w 15 min and 1 hr
+
+## Advanced IAM
+* Authorization Model Evaluation of Policies
+  * if explicit DENY, DENY
+  * if there's ALLOW, ALLOW
+  * else: DENY
+* IAM policies + S3 Bucket Policies
+  * the UNION of both policies will be evaluated
+* Dynamic Policies with IAM
+  * how do assign each use a /home/user folder in S3 bucket?
+    * option 1: create one IAM policy per user (not scalable!)
+    * option 2: create one dynamic policy and leverage policy variable ${aws.username}
+* inline vs managed policies
+  * managed policies
+    * maintained by AWS
+    * good for power users and admin
+    * updated in case of new services/new APIs
+  * customer managed policy
+    * best practice, reusable, can be applied to many principals
+    * version controlled + roll back (central change in management)
+  * inline
+    * strict one-to-one relationship between policy and principal
+    * policy is deleted if you delete IAM principal
+    * no versions
+    * size restriction
+
+## CloudFrount
+* content delivery network (CDN)
+* content is cached at edge - improved read performance
+* 136 point of presence globally
+* popular with S3 but works also with EC2, ALB
+* can help protect against network attaches
+* can provide SSL encryption
+* supports RTMP Protocol (videos/media)
+
+## Step Functions
+* build serverless visual workflow to orchestrate your Lambda functions
+* represent flow as a JSON state machine
+* features: sequence, parallel, conditions, timeouts, error handling, etc
+* can integrate with EC2, ECS, on-premise servers, API Gateway
+* max execution time 1 yr
+* can implement human approval features
+* use cases: order fulfillment, data processing, web apps, etc
+
+## Simple Workflow Service (SWS)
+* coodinate work amongst apps
+* code runs on EC2
+* 1 yr max runtime
+* has been mostly replaced by Step Functions except:
+  * you need external signals to intervene in processes
+  * you need child processes to return values to parent processes
+
+## Simple Email Service (SES)
+* send emails using SMTP interface or AWS SDK
+* integrates with S3, SNS, Lambda
+* Inegrated with IAM for allowing to send emails
+
+## Summary of Databases
+* RDS: relational databases, OLTP
+  * provisioned
+* DynamoDB: noSQL
+  * managed Key Value, Document
+  * serverlss
+* ElastiCache: in memory DB
+  * Redis/Memcached
+  * cache capability
+* Redshift: OLAP - analytic processing
+  * a petabyte scale warehouse service and you have to manually change settings for scaling
+  * data warehousing/data lake
+  * analytics queries
+* Neptune: graph database
+* DMS: database migration service
+
+## Amazon Certificate Management (ACM)
+* used to host public SSL certificates in AWS
+  * can buy your own and upload them using CLI
+  * can have ACM provision and renew public SSL certificates for you for free
+* ACL loads SSL certificates on Load Balancers, CloudFrints, APIs of API Gateways
+* SSL certificates are a pain to manage on your own - use AWS!
+
