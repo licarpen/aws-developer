@@ -144,6 +144,7 @@ echo "Hello World!" > /var/www/html/index.html
   * 3 year commitment
   * $$$
   * strong compliance needs - only customer
+** what is use case for dedicated instance vs dedicated host? **
 
 ## Load Balancing an EC2 with ELB (Elasitc Load Balancer)
 
@@ -323,7 +324,7 @@ echo "Hello World!" > /var/www/html/index.html
   * encryption at rest with KMS
   * SSL certificates to encrypt data to RDS in flight
     * enforcement for postgreSQL: rds.force_ssl=1 in AWS RDS console in paramter groups
-    * enforcement for MySQL: within DB: GRANT USAGE ON *.* TO 'mysqluser'@'%' REQUIRE SLL;
+    * enforcement for MySQL: within DB: GRANT USAGE ON *.* TO 'mysqluser'@'%' REQUIRE SSL;
     * connection using SSL
       * provide SSL trust certificate (dl from AWS)
       * provide SSL options when connecting to DB
@@ -334,7 +335,7 @@ echo "Hello World!" > /var/www/html/index.html
   * asynchronous replication - reads are eventually consistent after write
   * applications must update SQL connection string to leverage read replicas
 * multi AZ setup for disaster recovery
-  * writes to master DB are synchronously replicates to 1 standby in different AZ for failover
+  * writes to master DB are synchronously replicated to 1 standby in different AZ for failover
   * automatic
 * scaling capability (vertical and horizontal)
 * cannot SSH into instances!
@@ -358,6 +359,8 @@ echo "Hello World!" > /var/www/html/index.html
 
   ## ElastiCache
 
+  ElastiCache is an ideal front-end for data stores like Amazon RDS or Amazon DynamoDB, providing a high-performance middle tier for applications with extremely high request rates and/or low latency requirements.
+
   * basically an RDS for caching
   * get managed Redis or Memcached
   * in-memory DB with high performance, low-latency
@@ -365,7 +368,20 @@ echo "Hello World!" > /var/www/html/index.html
   * helps make app stateless
   * write scaling using sharding
   * read scaling use read replicas
+    * You can create a read replica in minutes using a CreateReplicationGroup API or a few clicks of the Amazon ElastiCache Management Console. When creating a cluster, you specify the MasterCacheClusterIdentifier. The MasterCacheClusterIdentifier is the cache cluster Identifier of the “primary” node from which you wish to replicate. You then create the read replica cluster within the shard by calling the CreateCacheCluster API specifying the ReplicationGroupIdentifier and the CacheClusterIdentifier of the master node. As with a standard cluster, you can also specify the Availability Zone. When you initiate the creation of a read replica, Amazon ElastiCache takes a snapshot of your primary node in a shard and begins replication. As a result, you will experience a brief I/O suspension on your primary node as the snapshot occurs. The I/O suspension typically lasts on the order of one minute.
+  * The read replicas are as easy to delete as they are to create; simply use the Amazon ElastiCache Management Console or call the DeleteCacheCluster API (specifying the CacheClusterIdentifier for the read replica you wish to delete).
+  * If you have multiple read replicas, it is up to your application to determine how read traffic will be distributed amongst them.
+  * Q: Can I promote my read replica into a “standalone” primary node?
+    * No, this is not supported. Instead, you may snapshot your ElastiCache for Redis node (you may select the primary or any of the read-replicas). You can then use the snapshot to seed a new ElastiCache for Redis primary.
+  * If you are using read replicas, you should be aware of the potential for lag between a read replica and its primary cache node, or “inconsistency”. You can monitor such lag potentially occuring via the "Replication Lag" CloudWatch metric, accessible through both the ElastiCache console and API, as well as those of the CloudWatch service.
   * multi AZ with failover capability
+  * enable access with security groups
+    * default network access turned off to clusters
+    * To allow network access to your cluster, create a Security Group and link the desired EC2 security groups (which in turn specify the EC2 instances allowed) to it. The Security Group can be associated with your cluster at the time of creation, or using the "Modify" option on the AWS Management Console.
+    * Please note that IP-range based access control is currently not enabled for clusters. All clients to a cluster must be within the EC2 network, and authorized via security groups as described above.
+    * above does not apply for VPC
+    * You can access an Amazon ElastiCache cluster from an application running in your data center providing there is connectivity between your VPC and the data center either through VPN or Direct Connect.
+    * EC2 instances in a VPC can access Amazon ElastiCache if the ElastiCache cluster was created within the VPC.
   * AWS takes care of OS maintenance, patching, monitoring, config, failure recovery, backups, etc.
   * user session store
     * user signs into instance
@@ -385,11 +401,21 @@ echo "Hello World!" > /var/www/html/index.html
       * pub/sub for messaging
     * multi AZ
     * support for read replicas
+    * supports snapshots
+      * can specify window
+      * upload to S3 to replicate a node to new region
   * Memcached
     * in-memory object store
     * no persistence
     * quick retrieval of objects
     * cache often-accessed objects
+  * use DNS name to connect to nodes as underlying P addresses can change (not for VPC) (i.e. after cache node replacement)
+  * nodes of an Amazon ElastiCache cluster can span multiple subnets as long as the subnets are part of the same Subnet Group that was associated with the ElastiCache Cluster at creation time.
+  * changing subnet group of a deployed cluster is not currently allowed
+  * you may not move an existing ElastiCache cluter from outside VPC to into or vice versa
+  * A Parameter Group acts as a "container" for engine configuration values that can be applied to one or more clusters. If you create a cluster without specifying a Parameter Group, a default Parameter Group is used. This default group contains engine defaults and Amazon ElastiCache system defaults optimized for the cluster you are running. However, if you want your cluster to run with your custom-specified engine configuration values, you can simply create a new Parameter Group, modify the desired parameters, and modify the cluster to use the new Parameter Group. Once associated, all clusters that use a particular Parameter Group get all the parameter updates to that Parameter Group.
+  * adding new nodes
+    * You could add more nodes to your existing Memcached Cluster by using the "Add Node" option on "Nodes" tab for your Cache Cluster on the AWS Management Console or calling the ModifyCacheCluster API.
 
   ### ElastiChache Patterns
 
@@ -405,7 +431,22 @@ echo "Hello World!" > /var/www/html/index.html
     * write penalty (two calls for each write)
     * cache will have a lot of data that is never read
 
+### Global Data Store 
+
+Global Datastore is a feature of Amazon ElastiCache for Redis that provides fully managed, fast, reliable and secure cross-region replication. With Global Datastore, you can write to your ElastiCache for Redis cluster in one region, and have the data available for read in two other cross-region replica clusters, thereby enabling low-latency reads and disaster recovery across regions.
+
+Designed for real-time applications with a global footprint, Global Datastore for Redis supports cross-region replication latency of typically under one second, increasing the responsiveness of your applications by providing geo-local reads closer to end users. In the unlikely event of regional degradation, one of the healthy cross-region replica clusters can be promoted to become the primary cluster with full read/write capabilities. Once initiated, the promotion typically completes in less than a minute, allowing your applications to remain available.
+
+* Q: How many AWS regions can I replicate to?
+  * You can replicate to up to two secondary regions within a Global Datastore for Redis. The clusters in secondary regions can be used to serve low-latency local reads and for disaster recovery, in the unlikely event of a regional degradation.
+
 ## VPC and 3 Tier Architecture
+
+* VPC lets you create a virtual networking environment in a private, isolated section of the Amazon Web Services (AWS) cloud, where you can exercise complete control over aspects such as private IP address ranges, subnets, routing tables and network gateways. With Amazon VPC, you can define a virtual network topology and customize the network configuration to closely resemble a traditional IP network that you might operate in your own datacenter.
+
+* One of the scenarios where you may want to use Amazon ElastiCache in a VPC is if you want to run a public-facing web application, while still maintaining non-publicly accessible backend servers in a private subnet. You can create a public-facing subnet for your webservers that has access to the Internet, and place your backend infrastructure in a private-facing subnet with no Internet access. Your backend infrastructure could include RDS DB Instances and an Amazon ElastiCache Cluster providing the in-memory layer.
+
+* Security Groups are not used when operating in a VPC. Instead they are used in the non VPC settings. When creating a cluster in a VPC you will need to use VPC Security Groups.
 
 * Public Subnet
   * load balancers
@@ -420,6 +461,11 @@ echo "Hello World!" > /var/www/html/index.html
 * VPC per account per region
 * subnets per VPC per AZ
 * can peer VPC w/i or across accounts to make it look like they are part of the same network
+* to create an ElastiCache Cluters in VPC:
+  * You need to have a VPC set up with at least one subnet. For information on creating Amazon VPC and subnets refer to the Getting Started Guide for Amazon VPC.
+  * You need to have a Subnet Group (for Redis or Memcached) defined for your VPC.
+  * You need to have a VPC Security Group defined for your VPC (or you can use the default provided).
+  * In addition, you should allocate adequately large CIDR blocks to each of your subnets so that there are enough spare IP addresses for Amazon ElastiCache to use during maintenance activities such as cache node replacement.
 
 ## S3 (Simple Storage Service)
 
@@ -1123,6 +1169,8 @@ Managing infrastructure as code
 * can trace
   * every request
   * sample request (% or rate per minute)
+* Annotations are simple key-value pairs that are indexed for use with filter expressions. Use annotations to record data that you want to use to group traces in the console, or when calling the GetTraceSummaries API. X-Ray indexes up to 50 annotations per trace.
+* Metadata are key-value pairs with values of any type, including objects and lists, but that are not indexed. Use metadata to record data you want to store in the trace but don’t need to use for searching traces. You can view annotations and metadata in the segment or subsegment details in the X-Ray console.
 * security requires IAM for authorization and KMS for encryption at rest
 * implementation
   * code: import AWS X-ray SDK
@@ -1319,13 +1367,17 @@ Managing infrastructure as code
 * low latency streaming ingest at scale
 * streams divided into ordered shards/partitions
 * shards: think of like queues
-  * write at 1 MB/s or 1000 messages/second 
+  * write at 1 MB/s or 1000 records/second
+    * PutRecord or PutRecords 
   * read at 2 MB/s
   * billing is per shard
   * can batch per message calls
   * number of shards can evolve (reshard or merge)
   * records are ordered per shard
 * data retention: default 1 day/up to 7 days
+* Kinesis Producer Library: helps with putting data into stream
+* Kinesis Agent: Java app that helps with collecting and sending data to stream
+* max data blob size: 1MB
 * ability to reprocess and replay data
 * multiple apps can consume same stream
 * enables real-time processing with scale of throughput
@@ -1340,14 +1392,19 @@ Managing infrastructure as code
   * retry with backoff
   * increase shards
   * ensure good partition key
+  * check CloudWatch to see changed in data stream's input data rate and occurrence of ProvisionedThroughputExceeded exceptions
 * consumers
-  * can use normal consumer (CLI, SDK, etc)
+  * can use normal consumer (CLI, SDK, etc)using Kinesis API
   * can use Kinesis Client Library
+    * helps you easily buid Kinesis Apps for reading and processing data from stream
     * KCL uses DynamoDB to checkout offsets and track other workers and share work amongst shards
     * each shard can only be read by one KCL instance
     * progress is checkpointed into DynamoDB (needs IAM access)
     * KCL can run on EC2, Elastic Beansalk, on premise app
     * read in-order on shard level
+    * call GetRecord on loop to iterate through data stream
+* enhanced fan-out (parallel consumption of stream): utilize by retrieving data with SubscribeToShard API and Kinesis Data Streams Service
+* Kinesis Connector Library enables connetors to DynamoDB, Redshift, S3, Elasticsearch
 
 #### Kinesis Analytics
 * perform real-time analytics on streams using SQL
@@ -1364,7 +1421,7 @@ Managing infrastructure as code
 
 * Instead of managing servers, developers just deploy functions.
 * easy monitoring with CloudWatch
-* easy to get more resources per functions (up to 3GB of RAM)
+* easy to get more resources per function (up to 3GB of RAM)
 * integrated with API Gateway, Kinesis, DynamoDB, S3, SNS, SQS, Cognito, IoT, CloudWatch Events and Logs
 
 
@@ -1383,9 +1440,10 @@ Managing infrastructure as code
 ### Lambda Configurations
 * timeout: default 3 s/ max 15 minutes (900s)
 * environment variables
-* allocated memory (128M to 3G)
+* allocated memory (128MB to 3GB)
 * can deploy within a VPC and assign SGs
 * IAM role must be attached 
+* research interaction between VPC and Lambda Function
 * edit code
   * inline
   * upload .zip
@@ -1456,7 +1514,7 @@ zip -r function.zip
 * refer to S3 zip location in CloudFOrmation
 * example of CloudFormation yaml
 ```
-Paramters: 
+Parameters: 
   S3BucketParam:
     Type: String
   S3KeyParam:
@@ -1490,7 +1548,7 @@ Resources:
 * don't put Lambda function into VPC unless you have to - takes longer to initialize
 
 ### Lamabda@Edge
-* you deployed a CDN using CloudFront
+* you deployed a Content Delivery Network using CloudFront
 * to run a global AWS Lambda alongside or implement request filtering before reaching app...
 * use Lambda@Edge
   * build more responsive apps
@@ -1526,7 +1584,7 @@ Resources:
 ### DynamoDB Basics
 * constructed of tables
 * each table has primary key
-  * Option 1: Primary key only (HASH)
+  * Option 1: Primary key only (this key is hashed to determine partition placement)
     * must be unique for each item
     * must be 'diverse' so data is distributed
     * ex: user id
@@ -1580,6 +1638,10 @@ Resources:
 
 ### DynamoDB Writing Data
 * you can use the PutItem or BatchWriteItem APIs to insert items. Then, you can use the GetItem, BatchGetItem, or, if composite primary keys are enabled and in use in your table, the Query API to retrieve the items you added to the table.
+* the Query operation finds items based on primary key values (partition key + sort key) 
+  * use KeyConditionExpression parameter to provide specific value for partition key
+  * narrow scope by specifying a sort key value and a comparison operator in KeyConditionExpression
+
 * PutItem (FULL REPLACE)
 * UpdateItem (only updates fields)
   * can implement Atomic Counters and increase them
@@ -2102,6 +2164,16 @@ Build, deploy, and manage a serverless API to the cloud
 * using Lambda
   * lecture 200
 
+### AWS Secrets Manager
+
+AWS Secrets Manager helps you protect secrets needed to access your applications, services, and IT resources. The service enables you to easily rotate, manage, and retrieve database credentials, API keys, and other secrets throughout their lifecycle. Users and applications retrieve secrets with a call to Secrets Manager APIs, eliminating the need to hardcode sensitive information in plain text. Secrets Manager offers secret rotation with built-in integration for Amazon RDS, Amazon Redshift, and Amazon DocumentDB. Also, the service is extensible to other types of secrets, including API keys and OAuth tokens. In addition, Secrets Manager enables you to control access to secrets using fine-grained permissions and audit secret rotation centrally for resources in the AWS Cloud, third-party services, and on-premises.
+
+* Secrets Manager offers built-in integration for Amazon RDS, Amazon Redshift, and Amazon DocumentDB and rotates these database credentials on your behalf automatically. 
+* You can customize Lambda functions to extend Secrets Manager rotation to other secret types, such as API keys and OAuth tokens.
+* you can help secure secrets by encrypting them with encryption keys that you manage using AWS Key Management Service (KMS). 
+* It also integrates with AWS’ logging and monitoring services for centralized auditing. For example, you can audit AWS CloudTrail logs to see when Secrets Manager rotates a secret or configure AWS CloudWatch Events to notify you when an administrator deletes a secret. 
+* you can configure Secrets Manager to automatically rotate the secret for you according to a schedule that you specify
+
 ## IAM Best Practices 
 * never use root credentials
 * enable MFA for root
@@ -2146,7 +2218,7 @@ I define which accounts can access the IAM role
     * no versions
     * size restriction
 
-## CloudFrount
+## CloudFront
 * content delivery network (CDN)
 * content is cached at edge - improved read performance
 * 136 point of presence globally
@@ -2186,6 +2258,23 @@ I define which accounts can access the IAM role
 * ElastiCache: in memory DB
   * Redis/Memcached
   * cache capability
+  * Redis and Memcached are popular, open-source, in-memory data stores. Although they are both easy to use and offer high performance, there are important differences to consider when choosing an engine. Memcached is designed for simplicity while Redis offers a rich set of features that make it effective for a wide range of use cases.
+
+In this scenario, Redis can provide a much more durable and powerful cache layer to the prototype distributed system, however, you should take note of one keyword in the requirement: multithreaded. In terms of commands execution, Redis is mostly a single-threaded server. It is not designed to benefit from multiple CPU cores unlike Memcached, however, you can launch several Redis instances to scale out on several cores if needed.
+
+Memcached is a more suitable choice since the scenario specifies that the system will run large nodes with multiple cores or threads which Memcached can adequately provide.
+
+You can choose Memcached over Redis if you have the following requirements:
+
+– You need the simplest model possible.
+
+– You need to run large nodes with multiple cores or threads.
+
+– You need the ability to scale out and in, adding and removing nodes as demand on your system increases and decreases.
+
+– You need to cache objects, such as a database.
+
+
 * Redshift: OLAP - analytic processing
   * a petabyte scale warehouse service and you have to manually change settings for scaling
   * data warehousing/data lake
