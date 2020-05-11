@@ -724,7 +724,7 @@ google 'aws s3 cli' for documentation
   * ASG only: non-web-apps in production (workers, etc)
 * components
   * application
-  * application version
+  * version
   * environment name
 * relies on CloudFormation
 * can use EB cli for automated deployment pipelines
@@ -790,6 +790,9 @@ google 'aws s3 cli' for documentation
 
 * offload tasks to worker environment (processing video, generating zip file, etc)
 * can define periodic tasks in a cron.yaml file
+* AWS resources created for a worker environment tier include an Auto Scaling group, one or more Amazon EC2 instances, and an IAM role. For the worker environment tier, Elastic Beanstalk also creates and provisions an Amazon SQS queue if you don’t already have one. When you launch a worker environment tier, Elastic Beanstalk installs the necessary support files for your programming language of choice and a daemon on each EC2 instance in the Auto Scaling group.
+* The daemon is responsible for pulling requests from an Amazon SQS queue and then sending the data to the web application running in the worker environment tier that will process those messages. If you have multiple instances in your worker environment tier, each instance has its own daemon, but they all read from the same Amazon SQS queue.
+* You can define periodic tasks in a file named cron.yaml in your source bundle to add jobs to your worker environment’s queue automatically at a regular interval. For example, you can configure and upload a cron.yaml file which creates two periodic tasks: one that runs every 12 hours and a second that runs at 11pm UTC every day.
 
 ### RDS + BeanStalk
 
@@ -1544,11 +1547,13 @@ precursor_ids – array of subsegment IDs that identifies subsegments with the s
 * near real-time
 * pay for data conversion from one format to another
 * pay for amount of data going through Firehose
+* can dump data to S3, ElasticSearch, Redshift, Splunk
 
 ## Lambda
 
 * Instead of managing servers, developers just deploy functions.
 * easy monitoring with CloudWatch
+* node, python, c#, go, java
 * integrate with CloudWatch Events to trigger lambda functions on regular basis
 * You can create rules that match selected events in the stream and route them to your AWS Lambda function to take action. For example, you can automatically invoke an AWS Lambda function to log the state of an EC2 instance or AutoScaling Group. You maintain event source mapping in Amazon CloudWatch Events by using a rule target definition.
 * easy to get more resources per function (up to 3GB of RAM)
@@ -1558,6 +1563,10 @@ precursor_ids – array of subsegment IDs that identifies subsegments with the s
   * A runtime is responsible for running the function’s setup code, reading the handler name from an environment variable, and reading invocation events from the Lambda runtime API. The runtime passes the event data to the function handler, and posts the response from the handler back to Lambda.
 
   * Your custom runtime runs in the standard Lambda execution environment. It can be a shell script, a script in a language that’s included in Amazon Linux, or a binary executable file that’s compiled in Amazon Linux.
+
+* To create a Lambda function, you need a deployment package and an execution role. The deployment package contains your function code. The execution role grants the function permission to use AWS services, such as Amazon CloudWatch Logs for log streaming and AWS X-Ray for request tracing. You can use the CreateFunction API via the AWS CLI or the AWS SDK of your choice.
+  * A function has an unpublished version, and can have published versions and aliases. The unpublished version changes when you update your function’s code and configuration. A published version is a snapshot of your function code and configuration that can’t be changed. An alias is a named resource that maps to a version, and can be changed to map to a different version.
+  * The InvalidParameterValueException will be returned if one of the parameters in the request is invalid. For example, if you provided an IAM role in the CreateFunction API which AWS Lambda is unable to assume. 
 
 * To create a Lambda function, you first create a Lambda function deployment package, a .zip or .jar file consisting of your code and any dependencies. When creating the zip, include only the code and its dependencies, not the containing folder. You will then need to set the appropriate security permissions for the zip package.
 
@@ -1569,6 +1578,7 @@ precursor_ids – array of subsegment IDs that identifies subsegments with the s
 
 * When you connect your Lambda function to a VPC, the function loses its default internet access. If you require external internet access for your function, make sure that your security group allows outbound connections and that your VPC has a NAT gateway.
 
+* **no scheduling feature of Lambda! Integrate with CloudWatch Events to schedule based on rule**
 
 ### Lambda Functions
 
@@ -1655,6 +1665,15 @@ precursor_ids – array of subsegment IDs that identifies subsegments with the s
   * ex: PROD alias points to V1
   * aliases are mutable
   * can do BLUE/GREEN deployment by weighting traffic to different aliases
+
+* By default, an alias points to a single Lambda function version. When the alias is updated to point to a different function version, incoming request traffic in turn instantly points to the updated version. This exposes that alias to any potential instabilities introduced by the new version. To minimize this impact, you can implement the routing-config parameter of the Lambda alias that allows you to point to two different versions of the Lambda function and dictate what percentage of incoming traffic is sent to each version.
+* For example, you can specify that only 2 percent of incoming traffic is routed to the new version while you analyze its readiness for a production environment, while the remaining 98 percent is routed to the original version. As the new version matures, you can gradually update the ratio as necessary until you have determined that the new version is stable. You can then update the alias to route all traffic to the new version.
+* You can point an alias to a maximum of two Lambda function versions. In addition:
+
+ * Both versions must have the same IAM execution role.
+ * Both versions must have the same AWS Lambda Function Dead Letter Queues configuration, or no DLQ configuration.
+ * When pointing an alias to more than one version, the alias cannot point to $LATEST.
+
 
 ### Lambda Function Dependencies
 * if lambda function depends on external libraries (AWS X-ray SDK, Database Clients, etc), install packages alongside your code and zip it together
@@ -1852,6 +1871,7 @@ Resources:
   * consumes a lot of RCU
   * returns up to 1MB of data at a time using pagination
   * Limit impact by using Limit to reduce size of result
+  * decrease page size to minimze impact on provisioned throughput
   * for faster performace, use parallel scans
     * multiple instances scan multiple partitions at the same time
   * use ProjectionExpression + FilterExpression
@@ -1949,6 +1969,15 @@ Build, deploy, and manage a serverless API to the cloud
   * HTTP Proxy integration: API Gateway passes request and response b/w frontend and HTTP backend
   * Lambda Proxy integration:  API Gateway sends request as an input toa  backend Lambda function
 * All of the APIs created with Amazon API Gateway expose HTTPS endpoints only. Amazon API Gateway does not support unencrypted (HTTP) endpoints. By default, Amazon API Gateway assigns an internal domain to the API that automatically uses the Amazon API Gateway certificate. When configuring your APIs to run under a custom domain name, you can provide your own certificate for the domain.
+* The following are the Gateway response types which are associated with the HTTP 504 error in API Gateway:
+
+  * INTEGRATION_FAILURE – The gateway response for an integration failed error. If the response type is unspecified, this response defaults to the DEFAULT_5XX type.
+
+  * INTEGRATION_TIMEOUT – The gateway response for an integration timed out error. If the response type is unspecified, this response defaults to the DEFAULT_5XX type.
+
+  * For the integration timeout, the range is from 50 milliseconds to 29 seconds for all integration types, including Lambda, Lambda proxy, HTTP, HTTP proxy, and AWS integrations.
+
+  * In this scenario, there is an issue where the users are getting HTTP 504 errors in the serverless application. This means the Lambda function is working fine at times but there are instances when it throws an error. Based on this analysis, the most likely cause of the issue is the INTEGRATION_TIMEOUT error since you will only get an INTEGRATION_FAILURE error if your AWS Lambda integration does not work at all in the first place.
 
 ### API Gateway Deployment
 * changes in API Gateway are not always effective right away
@@ -2436,6 +2465,18 @@ I define which accounts can access the IAM role
 * use AWS STS (Security Token Service) to retrieve creds and impersonate the IAM Role you have access to (AssumeRoleAPI)
   * not a feature of API Gateway
 * temp creds valid b/w 15 min and 1 hr
+* Q: A corporate web application is deployed within an Amazon VPC, and is connected to the corporate data center via IPSec VPN. The application must authenticate against the on-premise LDAP server.
+Once authenticated, logged-in users can only access an S3 keyspace specific to the user. Which two approaches can satisfy the objectives?
+  * The application authenticates against LDAP, and retrieves the name of an IAM role associated with the user. The application then calls the IAM Security Token Service to assume that IAM Role. The application can use the temporary credentials to access the appropriate S3 bucket.
+  * Develop an identity broker which authenticates against LDAP, and then calls IAM Security Token Service to get IAM federated user credentials. The application calls the identity broker to get IAM federated user credentials with access to the appropriate S3 bucket.
+* A resource policy can be used to grant API access to one AWS account to users in a different AWS
+account using Signature Version 4 (SigV4) protocols
+  * Create an IAM permission policy and attach it to each IAM user. Set the APIs method authorization type
+to AWS_IAM. Use Signature Version 4 to sign the API requests.
+  * Create a resource policy for the APIs that allows access for each IAM user only.
+
+  * If you have resources which are running inside AWS, that needs programmatic access to various AWS services, then the best practice is to always use IAM roles. However, for applications running outside of an AWS environment, these will need access keys for programmatic access to AWS resources. For example, monitoring tools running on-premises and third-party automation tools will need access keys.
+    * Go to the AWS Console and create a new IAM user with programmatic access. In the application server, create the credentials file at ~/.aws/credentials with the access keys of the IAM user.
 
 ## Advanced IAM
 * Authorization Model Evaluation of Policies
@@ -2579,3 +2620,13 @@ aws iam create-account-alias --account-alias tutorialsdojo
 * timers enable you to notify your decider when a certain amount of time has elapsed and does not meet the requirement in this scenario.
 
 * tags enable you to filter the listing of the executions when you use the visibility operations, which once again does not meet the requirement in this scenario.
+
+* instances launched into a private subnet in a VPC can't communicate with internet unless you use a NAT
+
+* You need an internet gateway and a route in the route table to talk to the internet
+
+### Errors
+
+* 504: integration time_out, integration_failure, usage plan qutoa exceeded
+* 502: large number of incoming requests
+* 403: authentication issue (AWS Cognito)
